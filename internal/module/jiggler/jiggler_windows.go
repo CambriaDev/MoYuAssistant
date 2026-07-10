@@ -4,6 +4,8 @@ package jiggler
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -45,15 +47,24 @@ type JigglerModule struct {
 	mu     sync.Mutex
 	cancel context.CancelFunc
 
-	statusLabel *widget.Label
-	toggleBtn   *widget.Button
+	timeoutSec   uint32
+	timeoutEntry *widget.Entry
+	statusLabel  *widget.Label
+	toggleBtn    *widget.Button
 }
 
 func (m *JigglerModule) Name() string        { return i18n.T("假装在线", "Fake Online") }
-func (m *JigglerModule) Description() string { return i18n.T("180s无操作自动晃动鼠标", "Auto jiggle mouse after 180s of inactivity") }
+func (m *JigglerModule) Description() string { return i18n.T("超时无操作自动防离开", "Auto anti-away after inactivity timeout") }
 func (m *JigglerModule) Icon() fyne.Resource { return theme.ComputerIcon() }
 
 func (m *JigglerModule) CreateUI(w fyne.Window) fyne.CanvasObject {
+	m.timeoutEntry = widget.NewEntry()
+	m.timeoutEntry.SetText("180")
+
+	timeoutForm := widget.NewForm(
+		widget.NewFormItem(i18n.T("无活动超时时间(秒):", "Inactivity timeout (sec):"), m.timeoutEntry),
+	)
+
 	m.statusLabel = widget.NewLabelWithStyle(i18n.T("状态：💤 未开启", "Status: 💤 Disabled"), fyne.TextAlignCenter, fyne.TextStyle{})
 
 	m.toggleBtn = widget.NewButton(i18n.T("开启防离开模式", "Enable Anti-Away Mode"), nil)
@@ -76,6 +87,7 @@ func (m *JigglerModule) CreateUI(w fyne.Window) fyne.CanvasObject {
 			title,
 			desc,
 			widget.NewSeparator(),
+			timeoutForm,
 			m.statusLabel,
 			m.toggleBtn,
 		),
@@ -93,8 +105,16 @@ func (m *JigglerModule) OnDestroy() {
 }
 
 func (m *JigglerModule) start() {
+	val, err := strconv.Atoi(m.timeoutEntry.Text)
+	if err != nil || val <= 0 {
+		val = 180
+		m.timeoutEntry.SetText("180")
+	}
+	m.timeoutSec = uint32(val)
+	m.timeoutEntry.Disable()
+
 	m.active = true
-	m.statusLabel.SetText(i18n.T("状态：✅ 已开启 (180s 无操作自动防离开)", "Status: ✅ Enabled (Auto anti-away after 180s)"))
+	m.statusLabel.SetText(fmt.Sprintf(i18n.T("状态：✅ 已开启 (倒计时: %d 秒)", "Status: ✅ Enabled (Countdown: %d s)"), m.timeoutSec))
 	m.toggleBtn.SetText(i18n.T("停止", "Stop"))
 	m.toggleBtn.Importance = widget.HighImportance
 
@@ -106,6 +126,7 @@ func (m *JigglerModule) start() {
 
 func (m *JigglerModule) stop() {
 	m.active = false
+	m.timeoutEntry.Enable()
 	m.statusLabel.SetText(i18n.T("状态：💤 未开启", "Status: 💤 Disabled"))
 	m.toggleBtn.SetText(i18n.T("开启防离开模式", "Enable Anti-Away Mode"))
 	m.toggleBtn.Importance = widget.MediumImportance
@@ -117,7 +138,7 @@ func (m *JigglerModule) stop() {
 }
 
 func (m *JigglerModule) runLoop(ctx context.Context) {
-	ticker := time.NewTicker(5 * time.Second) // 每 5 秒检查一次闲置时间
+	ticker := time.NewTicker(1 * time.Second) // 每 1 秒更新一次 UI
 	defer ticker.Stop()
 
 	for {
@@ -126,8 +147,14 @@ func (m *JigglerModule) runLoop(ctx context.Context) {
 			return
 		case <-ticker.C:
 			idleTimeMs := getIdleTime()
-			if idleTimeMs >= 180*1000 { // 180 seconds
+			idleSec := idleTimeMs / 1000
+
+			if idleSec >= m.timeoutSec {
 				jiggleMouse()
+				m.statusLabel.SetText(i18n.T("状态：✅ 刚刚晃动了鼠标，重新计时...", "Status: ✅ Just jiggled mouse, resetting..."))
+			} else {
+				remaining := m.timeoutSec - idleSec
+				m.statusLabel.SetText(fmt.Sprintf(i18n.T("状态：✅ 已开启 (倒计时: %d 秒)", "Status: ✅ Enabled (Countdown: %d s)"), remaining))
 			}
 		}
 	}

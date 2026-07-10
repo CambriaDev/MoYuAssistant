@@ -20,7 +20,7 @@ func init() {
 type JigglerModule struct{}
 
 func (m *JigglerModule) Name() string        { return i18n.T("假装在线", "Fake Online") }
-func (m *JigglerModule) Description() string { return i18n.T("180s无操作自动晃动鼠标", "Auto jiggle mouse after 180s of inactivity") }
+func (m *JigglerModule) Description() string { return i18n.T("超时无操作自动防离开", "Auto anti-away after inactivity timeout") }
 func (m *JigglerModule) Icon() fyne.Resource { return theme.ComputerIcon() }
 
 func (m *JigglerModule) CreateUI(w fyne.Window) fyne.CanvasObject {
