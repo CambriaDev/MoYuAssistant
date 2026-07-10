@@ -17,18 +17,7 @@ var customFont fyne.Resource
 
 func init() {
 	fontPaths := findfont.List()
-	var fontPath string
-	for _, path := range fontPaths {
-		lowerPath := strings.ToLower(path)
-		if strings.Contains(lowerPath, "msyh.ttc") || strings.Contains(lowerPath, "msyh.ttf") ||
-			strings.Contains(lowerPath, "simhei.ttf") || strings.Contains(lowerPath, "simsun.ttc") ||
-			strings.Contains(lowerPath, "simkai.ttf") ||
-			strings.Contains(lowerPath, "pingfang.ttc") ||
-			strings.Contains(lowerPath, "wqy-microhei.ttc") {
-			fontPath = path
-			break
-		}
-	}
+	fontPath := findPreferredFont(fontPaths)
 
 	if fontPath != "" {
 		fmt.Println("[MoYuAssistant] 找到中文字体 / Found CJK font:", fontPath)
@@ -46,6 +35,49 @@ func init() {
 		fmt.Println("[MoYuAssistant] 未找到中文字体，切换至英文模式 / No CJK font found, falling back to English UI.")
 		i18n.UseEnglish = true
 	}
+}
+
+func findPreferredFont(fontPaths []string) string {
+	preferredNames := []string{
+		"simhei.ttf",
+		"simfang.ttf",
+		"simkai.ttf",
+		"simsunb.ttf",
+		"msyh.ttf",
+		"msyhbd.ttf",
+		"msyhl.ttf",
+		"pingfang.ttf",
+	}
+
+	for _, preferredName := range preferredNames {
+		for _, path := range fontPaths {
+			if strings.EqualFold(filepath.Base(path), preferredName) {
+				return path
+			}
+		}
+	}
+
+	for _, path := range fontPaths {
+		lowerPath := strings.ToLower(path)
+		if strings.HasSuffix(lowerPath, ".ttc") || strings.HasSuffix(lowerPath, ".otc") {
+			continue
+		}
+
+		if strings.Contains(lowerPath, "msyh") ||
+			strings.Contains(lowerPath, "simhei") ||
+			strings.Contains(lowerPath, "simfang") ||
+			strings.Contains(lowerPath, "simkai") ||
+			strings.Contains(lowerPath, "simsun") ||
+			strings.Contains(lowerPath, "pingfang") ||
+			strings.Contains(lowerPath, "noto sans cjk") ||
+			strings.Contains(lowerPath, "sourcehansans") ||
+			strings.Contains(lowerPath, "sarasa") ||
+			strings.Contains(lowerPath, "wqy") {
+			return path
+		}
+	}
+
+	return ""
 }
 
 // cjkTheme 包装原有的 Theme，但在请求字体时始终返回支持中文的 customFont

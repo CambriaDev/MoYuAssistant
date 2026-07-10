@@ -21,6 +21,7 @@ func Run() {
 	appTitle := i18n.T("摸鱼助手", "MoYu Assistant")
 
 	a := fyneapp.NewWithID(appID)
+	a.SetIcon(newTrayIcon())
 	a.Settings().SetTheme(&cjkTheme{fallback: theme.DarkTheme()})
 
 	w := a.NewWindow(appTitle)
