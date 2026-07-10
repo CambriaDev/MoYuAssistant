@@ -19,7 +19,7 @@ const (
 // Run initializes and starts the application.
 func Run() {
 	a := fyneapp.NewWithID(appID)
-	a.Settings().SetTheme(theme.DarkTheme())
+	a.Settings().SetTheme(&cjkTheme{fallback: theme.DarkTheme()})
 
 	w := a.NewWindow(appTitle)
 	w.Resize(fyne.NewSize(800, 560))

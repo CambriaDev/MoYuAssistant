@@ -1,42 +1,61 @@
 package app
 
 import (
+	"image/color"
 	"os"
 	"strings"
 
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/theme"
 	"github.com/flopp/go-findfont"
 )
 
-func init() {
-	// 如果用户已经手动设置了 FYNE_FONT 环境变量，则尊重用户的设置
-	if os.Getenv("FYNE_FONT") != "" {
-		return
-	}
+var customFont fyne.Resource
 
-	// 遍历系统字体，寻找常见的中文字体并设置为 Fyne 的默认字体
+func init() {
 	fontPaths := findfont.List()
+	var fontPath string
 	for _, path := range fontPaths {
 		lowerPath := strings.ToLower(path)
-		
-		// 优先使用微软雅黑 (Windows)
-		if strings.Contains(lowerPath, "msyh.ttc") || strings.Contains(lowerPath, "msyh.ttf") {
-			os.Setenv("FYNE_FONT", path)
-			return
-		}
-		// 其次是黑体 (Windows)
-		if strings.Contains(lowerPath, "simhei.ttf") {
-			os.Setenv("FYNE_FONT", path)
-			return
-		}
-		// 苹方 (macOS)
-		if strings.Contains(lowerPath, "pingfang.ttc") {
-			os.Setenv("FYNE_FONT", path)
-			return
-		}
-		// 文泉驿微米黑 (Linux)
-		if strings.Contains(lowerPath, "wqy-microhei.ttc") {
-			os.Setenv("FYNE_FONT", path)
-			return
+		// 常见中文字体
+		if strings.Contains(lowerPath, "msyh.ttc") || strings.Contains(lowerPath, "msyh.ttf") ||
+			strings.Contains(lowerPath, "simhei.ttf") ||
+			strings.Contains(lowerPath, "pingfang.ttc") ||
+			strings.Contains(lowerPath, "wqy-microhei.ttc") {
+			fontPath = path
+			break
 		}
 	}
+
+	if fontPath != "" {
+		fontBytes, err := os.ReadFile(fontPath)
+		if err == nil {
+			customFont = fyne.NewStaticResource("cjk.ttf", fontBytes)
+		}
+	}
+}
+
+// cjkTheme 包装原有的 Theme，但在请求字体时始终返回支持中文的 customFont
+type cjkTheme struct {
+	fallback fyne.Theme
+}
+
+func (c *cjkTheme) Font(style fyne.TextStyle) fyne.Resource {
+	// 不管是 Bold、Italic 还是 Monospace，都统一使用我们的中文字体，防止部分文字变方块
+	if customFont != nil {
+		return customFont
+	}
+	return c.fallback.Font(style)
+}
+
+func (c *cjkTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
+	return c.fallback.Color(name, variant)
+}
+
+func (c *cjkTheme) Icon(name fyne.ThemeIconName) fyne.Resource {
+	return c.fallback.Icon(name)
+}
+
+func (c *cjkTheme) Size(name fyne.ThemeSizeName) float32 {
+	return c.fallback.Size(name)
 }
