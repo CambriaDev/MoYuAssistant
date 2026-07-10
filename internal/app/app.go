@@ -8,16 +8,18 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
+	"moyu-assistant/internal/i18n"
 	"moyu-assistant/internal/module"
 )
 
 const (
-	appID    = "com.strada.moyu-assistant"
-	appTitle = "摸鱼助手"
+	appID = "com.strada.moyu-assistant"
 )
 
 // Run initializes and starts the application.
 func Run() {
+	appTitle := i18n.T("摸鱼助手", "MoYu Assistant")
+
 	a := fyneapp.NewWithID(appID)
 	a.Settings().SetTheme(&cjkTheme{fallback: theme.DarkTheme()})
 
@@ -26,7 +28,7 @@ func Run() {
 	w.CenterOnScreen()
 
 	// Setup system tray (minimize-to-tray behavior)
-	setupTray(a, w)
+	setupTray(a, w, appTitle)
 
 	// Initialize all registered modules
 	modules := module.All()
@@ -65,13 +67,13 @@ func buildMainUI(w fyne.Window, modules []module.Module) fyne.CanvasObject {
 // buildEmptyState creates the UI shown when no modules are compiled in.
 func buildEmptyState() fyne.CanvasObject {
 	title := widget.NewLabelWithStyle(
-		"📦 没有加载任何功能模块",
+		i18n.T("📦 没有加载任何功能模块", "📦 No functional modules loaded"),
 		fyne.TextAlignCenter,
 		fyne.TextStyle{Bold: true},
 	)
 
 	hint := widget.NewLabelWithStyle(
-		"请使用 build tags 编译所需模块，例如：\ngo build -tags \"module_clock module_todo\" -o moyu.exe .",
+		i18n.T("请使用 build tags 编译所需模块，例如：\ngo build -tags \"module_clock module_todo\" -o moyu.exe .", "Please compile with build tags, e.g.:\ngo build -tags \"module_clock module_todo\" -o moyu.exe ."),
 		fyne.TextAlignCenter,
 		fyne.TextStyle{Monospace: true},
 	)

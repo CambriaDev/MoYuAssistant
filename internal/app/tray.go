@@ -4,11 +4,13 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/theme"
+
+	"moyu-assistant/internal/i18n"
 )
 
 // setupTray configures the system tray icon and menu, and intercepts the
 // window close event to hide the window (minimize to tray) instead of quitting.
-func setupTray(a fyne.App, w fyne.Window) {
+func setupTray(a fyne.App, w fyne.Window, appTitle string) {
 	// Only desktop platforms support system tray
 	desk, ok := a.(desktop.App)
 	if !ok {
@@ -20,12 +22,12 @@ func setupTray(a fyne.App, w fyne.Window) {
 
 	// Build the tray right-click menu
 	menu := fyne.NewMenu(appTitle,
-		fyne.NewMenuItem("显示主窗口", func() {
+		fyne.NewMenuItem(i18n.T("显示主窗口", "Show Main Window"), func() {
 			w.Show()
 			w.RequestFocus()
 		}),
 		fyne.NewMenuItemSeparator(),
-		fyne.NewMenuItem("退出", func() {
+		fyne.NewMenuItem(i18n.T("退出", "Quit"), func() {
 			a.Quit()
 		}),
 	)

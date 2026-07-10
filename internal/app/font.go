@@ -1,12 +1,16 @@
 package app
 
 import (
+	"fmt"
 	"image/color"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"fyne.io/fyne/v2"
 	"github.com/flopp/go-findfont"
+
+	"moyu-assistant/internal/i18n"
 )
 
 var customFont fyne.Resource
@@ -16,9 +20,9 @@ func init() {
 	var fontPath string
 	for _, path := range fontPaths {
 		lowerPath := strings.ToLower(path)
-		// 常见中文字体
 		if strings.Contains(lowerPath, "msyh.ttc") || strings.Contains(lowerPath, "msyh.ttf") ||
-			strings.Contains(lowerPath, "simhei.ttf") ||
+			strings.Contains(lowerPath, "simhei.ttf") || strings.Contains(lowerPath, "simsun.ttc") ||
+			strings.Contains(lowerPath, "simkai.ttf") ||
 			strings.Contains(lowerPath, "pingfang.ttc") ||
 			strings.Contains(lowerPath, "wqy-microhei.ttc") {
 			fontPath = path
@@ -27,10 +31,20 @@ func init() {
 	}
 
 	if fontPath != "" {
+		fmt.Println("[MoYuAssistant] 找到中文字体 / Found CJK font:", fontPath)
 		fontBytes, err := os.ReadFile(fontPath)
 		if err == nil {
-			customFont = fyne.NewStaticResource("cjk.ttf", fontBytes)
+			fileName := filepath.Base(fontPath)
+			customFont = fyne.NewStaticResource(fileName, fontBytes)
+			fmt.Println("[MoYuAssistant] 成功加载字体资源 / Successfully loaded font:", fileName)
+			i18n.UseEnglish = false
+		} else {
+			fmt.Println("[MoYuAssistant] 读取字体文件失败 / Failed to read font file:", err)
+			i18n.UseEnglish = true
 		}
+	} else {
+		fmt.Println("[MoYuAssistant] 未找到中文字体，切换至英文模式 / No CJK font found, falling back to English UI.")
+		i18n.UseEnglish = true
 	}
 }
 

@@ -15,6 +15,7 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
+	"moyu-assistant/internal/i18n"
 	"moyu-assistant/internal/module"
 )
 
@@ -48,14 +49,14 @@ type JigglerModule struct {
 	toggleBtn   *widget.Button
 }
 
-func (m *JigglerModule) Name() string        { return "假装在线" }
-func (m *JigglerModule) Description() string { return "180s无操作自动晃动鼠标" }
+func (m *JigglerModule) Name() string        { return i18n.T("假装在线", "Fake Online") }
+func (m *JigglerModule) Description() string { return i18n.T("180s无操作自动晃动鼠标", "Auto jiggle mouse after 180s of inactivity") }
 func (m *JigglerModule) Icon() fyne.Resource { return theme.ComputerIcon() }
 
 func (m *JigglerModule) CreateUI(w fyne.Window) fyne.CanvasObject {
-	m.statusLabel = widget.NewLabelWithStyle("状态：💤 未开启", fyne.TextAlignCenter, fyne.TextStyle{})
+	m.statusLabel = widget.NewLabelWithStyle(i18n.T("状态：💤 未开启", "Status: 💤 Disabled"), fyne.TextAlignCenter, fyne.TextStyle{})
 
-	m.toggleBtn = widget.NewButton("开启防离开模式", nil)
+	m.toggleBtn = widget.NewButton(i18n.T("开启防离开模式", "Enable Anti-Away Mode"), nil)
 	m.toggleBtn.OnTapped = func() {
 		m.mu.Lock()
 		defer m.mu.Unlock()
@@ -66,8 +67,8 @@ func (m *JigglerModule) CreateUI(w fyne.Window) fyne.CanvasObject {
 		}
 	}
 
-	title := widget.NewLabelWithStyle("🖱️ 假装在线", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
-	desc := widget.NewLabel("开启后，后台会监听系统输入事件。\n如果超过 180 秒没有任何键盘鼠标活动，会自动微动鼠标。\n(任何人工或程序的键鼠活动都会重新计时)")
+	title := widget.NewLabelWithStyle(i18n.T("🖱️ 假装在线", "🖱️ Fake Online"), fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	desc := widget.NewLabel(i18n.T("开启后，后台会监听系统输入事件。\n如果超过 180 秒没有任何键盘鼠标活动，会自动微动鼠标。\n(任何人工或程序的键鼠活动都会重新计时)", "When enabled, listens to system input events in the background.\nIf no keyboard/mouse activity for 180s, automatically jiggles the mouse.\n(Any manual or programmatic input will reset the timer)"))
 	desc.Alignment = fyne.TextAlignCenter
 
 	return container.New(layout.NewCenterLayout(),
@@ -93,8 +94,8 @@ func (m *JigglerModule) OnDestroy() {
 
 func (m *JigglerModule) start() {
 	m.active = true
-	m.statusLabel.SetText("状态：✅ 已开启 (180s 无操作自动防离开)")
-	m.toggleBtn.SetText("停止")
+	m.statusLabel.SetText(i18n.T("状态：✅ 已开启 (180s 无操作自动防离开)", "Status: ✅ Enabled (Auto anti-away after 180s)"))
+	m.toggleBtn.SetText(i18n.T("停止", "Stop"))
 	m.toggleBtn.Importance = widget.HighImportance
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -105,8 +106,8 @@ func (m *JigglerModule) start() {
 
 func (m *JigglerModule) stop() {
 	m.active = false
-	m.statusLabel.SetText("状态：💤 未开启")
-	m.toggleBtn.SetText("开启防离开模式")
+	m.statusLabel.SetText(i18n.T("状态：💤 未开启", "Status: 💤 Disabled"))
+	m.toggleBtn.SetText(i18n.T("开启防离开模式", "Enable Anti-Away Mode"))
 	m.toggleBtn.Importance = widget.MediumImportance
 
 	if m.cancel != nil {
