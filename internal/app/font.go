@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/theme"
 	"github.com/flopp/go-findfont"
 )
 
