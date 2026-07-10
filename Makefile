@@ -1,7 +1,7 @@
 APP_NAME := moyu-assistant
 
 # All available modules
-ALL_MODULES := module_clock module_todo module_pomodoro module_notes
+ALL_MODULES := module_clock module_todo module_pomodoro module_notes module_jiggler
 
 # Default: build with all modules (override with: make build MODULES="module_clock module_todo")
 MODULES ?= $(ALL_MODULES)
