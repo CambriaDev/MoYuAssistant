@@ -1,0 +1,5 @@
+moyu-assistant
+moyu-assistant.exe
+*.exe
+.idea/
+.vscode/

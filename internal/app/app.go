@@ -5,7 +5,6 @@ import (
 	fyneapp "fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
-	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
 	"moyu-assistant/internal/i18n"
@@ -13,7 +12,7 @@ import (
 )
 
 const (
-	appID = "com.strada.moyu-assistant"
+	appID = "MoYuAssistant"
 )
 
 // Run initializes and starts the application.
@@ -22,11 +21,12 @@ func Run() {
 
 	a := fyneapp.NewWithID(appID)
 	a.SetIcon(newTrayIcon())
-	a.Settings().SetTheme(&cjkTheme{fallback: theme.DarkTheme()})
+	applyTheme(a)
 
 	w := a.NewWindow(appTitle)
 	w.Resize(fyne.NewSize(800, 560))
 	w.CenterOnScreen()
+	setupMenu(a, w)
 
 	// Setup system tray (minimize-to-tray behavior)
 	setupTray(a, w, appTitle)
