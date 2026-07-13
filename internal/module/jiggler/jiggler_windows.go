@@ -176,11 +176,12 @@ func getIdleTime() uint32 {
 	return uint32(tickCount) - lii.DwTime
 }
 
-// jiggleMouse 模拟极微小的鼠标移动
+// jiggleMouse 模拟明显的鼠标移动（方便测试时观察）
 func jiggleMouse() {
-	// 向右下方移动 1 像素
-	procMouseEvent.Call(MOUSEEVENTF_MOVE, uintptr(1), uintptr(1), 0, 0)
-	time.Sleep(50 * time.Millisecond)
-	// 向左上方移回 1 像素（0xFFFFFFFF 是 -1 的 uint32 表示）
-	procMouseEvent.Call(MOUSEEVENTF_MOVE, uintptr(uint32(0xFFFFFFFF)), uintptr(uint32(0xFFFFFFFF)), 0, 0)
+	movePixels := int32(50)
+	// 向右下方移动
+	procMouseEvent.Call(MOUSEEVENTF_MOVE, uintptr(uint32(movePixels)), uintptr(uint32(movePixels)), 0, 0)
+	time.Sleep(200 * time.Millisecond)
+	// 向左上方移回
+	procMouseEvent.Call(MOUSEEVENTF_MOVE, uintptr(uint32(-movePixels)), uintptr(uint32(-movePixels)), 0, 0)
 }
