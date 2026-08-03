@@ -10,12 +10,14 @@ import (
 	"github.com/go-ole/go-ole/oleutil"
 )
 
+const sFalse = uintptr(0x00000001)
+
 // saveAsXLSViaExcel uses MS Excel COM automation to convert the file perfectly.
 // Requires MS Excel installed on the Windows system.
 func saveAsXLSViaExcel(xlsxPath, xlsPath string) error {
 	// Initialize COM
 	if err := ole.CoInitializeEx(0, ole.COINIT_APARTMENTTHREADED); err != nil {
-		if oleErr, ok := err.(*ole.OleError); ok && oleErr.Code() == ole.S_FALSE {
+		if oleErr, ok := err.(*ole.OleError); ok && oleErr.Code() == sFalse {
 			// already initialized
 		} else {
 			return fmt.Errorf("CoInitializeEx failed: %v", err)

@@ -34,7 +34,7 @@ type BankToolModule struct {
 }
 
 func (m *BankToolModule) Name() string {
-	return i18n.T("薪资转换", "BankTool")
+	return i18n.T("MCL Bank", "MCL Bank")
 }
 
 func (m *BankToolModule) Description() string {
