@@ -138,7 +138,7 @@ func buildMainUI(w fyne.Window, modules []module.Module) fyne.CanvasObject {
 			box := node.(*fyne.Container)
 			icon := box.Objects[0].(*widget.Icon)
 			label := box.Objects[1].(*widget.Label)
-			
+
 			if strings.HasPrefix(uid, "cat:") {
 				catName := strings.TrimPrefix(uid, "cat:")
 				label.SetText(catName)
@@ -160,12 +160,12 @@ func buildMainUI(w fyne.Window, modules []module.Module) fyne.CanvasObject {
 			contentArea.Refresh()
 		}
 	}
-	
+
 	// Open all categories by default
 	for _, cat := range catOrder {
 		tree.OpenBranch("cat:" + cat)
 	}
-	
+
 	// Pre-select first module
 	if jigglerModIdx != -1 {
 		tree.Select(fmt.Sprintf("mod:%d", jigglerModIdx))

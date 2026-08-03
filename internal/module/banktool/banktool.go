@@ -2,7 +2,6 @@ package banktool
 
 import (
 	"fmt"
-	"image/color"
 	"io/ioutil"
 	"math"
 	"os"
@@ -12,9 +11,7 @@ import (
 	"sync"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/eslider/go-xls/v2"
@@ -129,7 +126,7 @@ func (s *appState) appendLog(msg string, level logLevel) {
 	case levelInfo:
 		prefix = "[INFO]  "
 	}
-	
+
 	formattedMsg := prefix + msg
 
 	if s.logWidget != nil {
@@ -182,7 +179,7 @@ func getPayrollTotals(filename string) (int, float64, error) {
 		if len(row.Cells) <= colIdx {
 			continue
 		}
-		
+
 		if len(row.Cells) > 3 && strings.TrimSpace(row.Cells[3].String()) == "" {
 			continue // Skip total row for count
 		}
@@ -228,19 +225,19 @@ func processExcelFiles(state *appState) {
 		sum   float64
 	}
 	var stats []fileStat
-	
+
 	count := 0
 	for _, file := range filesToProcess {
 		name := filepath.Base(file)
 		ext := filepath.Ext(name)
 		baseName := name[:len(name)-len(ext)]
-		
+
 		if strings.HasPrefix(baseName, "BANK_MAE_CNA_") {
 			baseName = "MAE" + strings.TrimPrefix(baseName, "BANK_MAE_CNA_")
 		}
 		xlsName := baseName + ".xls"
 		outPath := filepath.Join(state.outputDir, xlsName)
-		
+
 		state.appendLog(fmt.Sprintf("⏳ Converting %s ...", name), levelInfo)
 
 		f, err := xlsx.OpenFile(file)
@@ -248,7 +245,7 @@ func processExcelFiles(state *appState) {
 			state.appendLog(fmt.Sprintf("  ✗ Failed to open: %v", err), levelError)
 			continue
 		}
-		
+
 		fileCount := 0
 		fileSum := 0.0
 
@@ -266,7 +263,7 @@ func processExcelFiles(state *appState) {
 				}
 			}
 		}
-		
+
 		totalBankItems += fileCount
 		totalBankSum += fileSum
 
@@ -274,7 +271,7 @@ func processExcelFiles(state *appState) {
 		parts := strings.Split(name, "_")
 		for _, p := range parts {
 			if (strings.HasPrefix(p, "LCN") || strings.HasPrefix(p, "CN")) && len(p) > 2 {
-				labelCand := strings.TrimPrefix(p, "L") 
+				labelCand := strings.TrimPrefix(p, "L")
 				if len(labelCand) > 2 && labelCand[2] >= '0' && labelCand[2] <= '9' {
 					label = labelCand
 					break
@@ -345,7 +342,7 @@ func processExcelFiles(state *appState) {
 			}
 		}
 	}
-	
+
 	state.appendLog("------------------------------------------", levelInfo)
 	state.appendLog("📄 File breakdown:", levelHighlight)
 	for _, s := range stats {
@@ -360,28 +357,7 @@ func processExcelFiles(state *appState) {
 func (m *BankToolModule) CreateUI(w fyne.Window) fyne.CanvasObject {
 	state := m.state
 
-	headerGrad := canvas.NewLinearGradient(
-		color.NRGBA{R: 90, G: 110, B: 140, A: 255},  
-		color.NRGBA{R: 160, G: 175, B: 190, A: 255}, 
-		-45,
-	)
-	headerText := canvas.NewText("BankTool", color.White)
-	headerText.TextSize = 28
-	headerText.TextStyle = fyne.TextStyle{Bold: true}
-	headerText.Alignment = fyne.TextAlignCenter
-	
-	subHeaderText := canvas.NewText("Excel Format Converter", color.NRGBA{255, 255, 255, 200})
-	subHeaderText.TextSize = 12
-	subHeaderText.Alignment = fyne.TextAlignCenter
-
-	headerContent := container.NewVBox(
-		layout.NewSpacer(),
-		headerText,
-		subHeaderText,
-		layout.NewSpacer(),
-	)
-	headerContainer := container.NewMax(headerGrad, container.NewPadded(headerContent))
-	sizedHeader := container.New(layout.NewGridWrapLayout(fyne.NewSize(320, 100)), headerContainer)
+	sizedHeader := module.CreateHeader("BankTool", "Excel Format Converter")
 
 	inputLabel := widget.NewLabel(i18n.T("默认：当前目录下所有 .xlsx", "Default: All .xlsx in current dir"))
 	inputLabel.Wrapping = fyne.TextWrapWord
@@ -450,9 +426,9 @@ func (m *BankToolModule) CreateUI(w fyne.Window) fyne.CanvasObject {
 		inputLabel.SetText(i18n.T("默认：当前目录下所有 .xlsx", "Default: All .xlsx in current dir"))
 		state.appendLog("⚠ Cleared file selection.", levelWarning)
 	})
-	
+
 	inputBtns := container.NewGridWithColumns(2, selectFilesBtn, addFolderBtn)
-	
+
 	inputControls := container.NewVBox(
 		widget.NewLabelWithStyle(i18n.T("输入设置", "Input Settings"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		container.NewBorder(nil, nil, nil, clearFilesBtn, inputBtns),
@@ -549,15 +525,15 @@ func (m *BankToolModule) CreateUI(w fyne.Window) fyne.CanvasObject {
 	)
 
 	logTitle := widget.NewLabelWithStyle(i18n.T("控制台输出", "Console Output"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-	
+
 	clearConsoleBtn := widget.NewButton(i18n.T("清空", "Clear"), func() {
 		state.mu.Lock()
 		state.mu.Unlock()
 		state.logWidget.SetText("")
 	})
-	
+
 	logHeader := container.NewBorder(nil, nil, logTitle, clearConsoleBtn)
-	
+
 	logArea := container.NewBorder(
 		container.NewVBox(logHeader, widget.NewSeparator()),
 		nil, nil, nil,
@@ -568,7 +544,7 @@ func (m *BankToolModule) CreateUI(w fyne.Window) fyne.CanvasObject {
 		sidebar,
 		container.NewPadded(logArea),
 	)
-	split.Offset = 0.35 
+	split.Offset = 0.35
 
 	return split
 }

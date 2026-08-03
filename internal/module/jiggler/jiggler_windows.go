@@ -53,11 +53,14 @@ type JigglerModule struct {
 	toggleBtn    *widget.Button
 }
 
-func (m *JigglerModule) Name() string        { return i18n.T("假装在线", "Fake Online") }
-func (m *JigglerModule) Description() string { return i18n.T("超时无操作自动防离开", "Auto anti-away after inactivity timeout") }
+func (m *JigglerModule) Name() string { return i18n.T("假装在线", "Fake Online") }
+func (m *JigglerModule) Description() string {
+	return i18n.T("超时无操作自动防离开", "Auto anti-away after inactivity timeout")
+}
 func (m *JigglerModule) Icon() fyne.Resource { return theme.ComputerIcon() }
 
 func (m *JigglerModule) CreateUI(w fyne.Window) fyne.CanvasObject {
+	header := module.CreateHeader(i18n.T("🖱️ 假装在线", "🖱️ Fake Online"), i18n.T("超时无操作自动防离开", "Auto anti-away after inactivity timeout"))
 	m.timeoutEntry = widget.NewEntry()
 	m.timeoutEntry.SetText("180")
 
@@ -78,13 +81,11 @@ func (m *JigglerModule) CreateUI(w fyne.Window) fyne.CanvasObject {
 		}
 	}
 
-	title := widget.NewLabelWithStyle(i18n.T("🖱️ 假装在线", "🖱️ Fake Online"), fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 	desc := widget.NewLabel(i18n.T("开启后，后台会监听系统输入事件。\n如果超过 180 秒没有任何键盘鼠标活动，会自动微动鼠标。\n(任何人工或程序的键鼠活动都会重新计时)", "When enabled, listens to system input events in the background.\nIf no keyboard/mouse activity for 180s, automatically jiggles the mouse.\n(Any manual or programmatic input will reset the timer)"))
 	desc.Alignment = fyne.TextAlignCenter
 
-	return container.New(layout.NewCenterLayout(),
+	content := container.New(layout.NewCenterLayout(),
 		container.NewVBox(
-			title,
 			desc,
 			widget.NewSeparator(),
 			timeoutForm,
@@ -92,9 +93,10 @@ func (m *JigglerModule) CreateUI(w fyne.Window) fyne.CanvasObject {
 			m.toggleBtn,
 		),
 	)
+	return container.NewBorder(header, nil, nil, nil, content)
 }
 
-func (m *JigglerModule) OnInit() {}
+func (m *JigglerModule) OnInit()          {}
 func (m *JigglerModule) Category() string { return "" }
 
 func (m *JigglerModule) OnDestroy() {

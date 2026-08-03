@@ -19,20 +19,18 @@ func init() {
 
 type JigglerModule struct{}
 
-func (m *JigglerModule) Name() string        { return i18n.T("假装在线", "Fake Online") }
-func (m *JigglerModule) Description() string { return i18n.T("超时无操作自动防离开", "Auto anti-away after inactivity timeout") }
+func (m *JigglerModule) Name() string { return i18n.T("假装在线", "Fake Online") }
+func (m *JigglerModule) Description() string {
+	return i18n.T("超时无操作自动防离开", "Auto anti-away after inactivity timeout")
+}
 func (m *JigglerModule) Icon() fyne.Resource { return theme.ComputerIcon() }
 
 func (m *JigglerModule) CreateUI(w fyne.Window) fyne.CanvasObject {
-	title := widget.NewLabelWithStyle(i18n.T("🖱️ 假装在线", "🖱️ Fake Online"), fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
-	desc := widget.NewLabel(i18n.T("当前操作系统不支持此模块。\n该功能依赖 Windows API。", "This module is not supported on the current OS.\nIt relies on Windows APIs."))
-	desc.Alignment = fyne.TextAlignCenter
-
-	return container.New(layout.NewCenterLayout(),
-		container.NewVBox(title, desc),
-	)
+	header := module.CreateHeader(i18n.T("🖱️ 假装在线", "🖱️ Fake Online"), i18n.T("超时无操作自动防离开", "Auto anti-away after inactivity timeout"))
+	content := container.New(layout.NewCenterLayout(), container.NewVBox(widget.NewLabel(i18n.T("当前操作系统不支持此模块。\n该功能依赖 Windows API。", "This module is not supported on the current OS.\nIt relies on Windows APIs."))))
+	return container.NewBorder(header, nil, nil, nil, content)
 }
 
-func (m *JigglerModule) OnInit()    {}
-func (m *JigglerModule) OnDestroy() {}
+func (m *JigglerModule) OnInit()          {}
+func (m *JigglerModule) OnDestroy()       {}
 func (m *JigglerModule) Category() string { return "" }

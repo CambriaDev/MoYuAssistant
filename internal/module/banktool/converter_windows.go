@@ -57,7 +57,7 @@ func saveAsXLSViaExcel(xlsxPath, xlsPath string) error {
 	}
 	wbDispatch := workbook.ToIDispatch()
 	defer wbDispatch.Release()
-	
+
 	// Close workbook without saving changes when done
 	defer oleutil.CallMethod(wbDispatch, "Close", false)
 
