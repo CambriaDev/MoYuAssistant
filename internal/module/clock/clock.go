@@ -36,3 +36,4 @@ func (m *ClockModule) CreateUI(w fyne.Window) fyne.CanvasObject {
 
 func (m *ClockModule) OnInit()    {}
 func (m *ClockModule) OnDestroy() {}
+func (m *ClockModule) Category() string { return "" }

@@ -36,3 +36,4 @@ func (m *NotesModule) CreateUI(w fyne.Window) fyne.CanvasObject {
 
 func (m *NotesModule) OnInit()    {}
 func (m *NotesModule) OnDestroy() {}
+func (m *NotesModule) Category() string { return "" }

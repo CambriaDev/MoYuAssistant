@@ -3,3 +3,4 @@ moyu-assistant.exe
 *.exe
 .idea/
 .vscode/
+/test/
