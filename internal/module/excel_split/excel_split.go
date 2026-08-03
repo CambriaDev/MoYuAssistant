@@ -14,6 +14,7 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"github.com/ncruces/zenity"
 	"github.com/xuri/excelize/v2"
 
 	"moyu-assistant/internal/i18n"
@@ -43,22 +44,25 @@ func (m *ExcelSplitModule) CreateUI(w fyne.Window) fyne.CanvasObject {
 	fileLabel.Alignment = fyne.TextAlignCenter
 
 	selectBtn := widget.NewButtonWithIcon(i18n.T("选择Excel文件", "Select Excel File"), theme.FolderOpenIcon(), func() {
-		fd := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
+		go func() {
+			filename, err := zenity.SelectFile(
+				zenity.Title("Select Excel File"),
+				zenity.FileFilter{Name: "Excel Files", Patterns: []string{"*.xlsx", "*.XLSX"}},
+			)
 			if err != nil {
-				dialog.ShowError(err, w)
+				if err != zenity.ErrCanceled {
+					dialog.ShowError(err, w)
+				}
 				return
 			}
-			if reader == nil {
+			if filename == "" {
 				return
 			}
-			defer reader.Close()
 
-			selectedFile = reader.URI().Path()
+			selectedFile = filename
 			fileLabel.SetText(fmt.Sprintf("%s: %s", i18n.T("已选择", "Selected"), filepath.Base(selectedFile)))
 			statusLabel.SetText("")
-		}, w)
-		// Usually Excel files are .xlsx
-		fd.Show()
+		}()
 	})
 
 	appPrefs := fyne.CurrentApp().Preferences()
@@ -74,20 +78,25 @@ func (m *ExcelSplitModule) CreateUI(w fyne.Window) fyne.CanvasObject {
 	}
 
 	selectOutDirBtn := widget.NewButtonWithIcon(i18n.T("选择输出目录", "Select Output Dir"), theme.FolderIcon(), func() {
-		fd := dialog.NewFolderOpen(func(uri fyne.ListableURI, err error) {
+		go func() {
+			dir, err := zenity.SelectFile(
+				zenity.Title("Select Output Folder"),
+				zenity.Directory(),
+			)
 			if err != nil {
-				dialog.ShowError(err, w)
+				if err != zenity.ErrCanceled {
+					dialog.ShowError(err, w)
+				}
 				return
 			}
-			if uri == nil {
+			if dir == "" {
 				return
 			}
 			
-			selectedOutDir = uri.Path()
+			selectedOutDir = dir
 			appPrefs.SetString("MassUpload_OutDir", selectedOutDir)
 			outDirLabel.SetText(i18n.T("输出目录: ", "Output Dir: ") + selectedOutDir)
-		}, w)
-		fd.Show()
+		}()
 	})
 
 	processBtn := widget.NewButtonWithIcon(i18n.T("开始拆分", "Start Splitting"), theme.MediaPlayIcon(), func() {
