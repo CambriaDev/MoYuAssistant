@@ -41,6 +41,10 @@ func (m *BankToolModule) Description() string {
 	return i18n.T("用于转换薪资Excel文件格式的工具", "Tool to convert payroll Excel format")
 }
 
+func (m *BankToolModule) Category() string {
+	return "MaerskCN"
+}
+
 func (m *BankToolModule) Icon() fyne.Resource {
 	return theme.DocumentIcon()
 }

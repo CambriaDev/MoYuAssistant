@@ -35,3 +35,4 @@ func (m *JigglerModule) CreateUI(w fyne.Window) fyne.CanvasObject {
 
 func (m *JigglerModule) OnInit()    {}
 func (m *JigglerModule) OnDestroy() {}
+func (m *JigglerModule) Category() string { return "" }

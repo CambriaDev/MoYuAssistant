@@ -36,3 +36,4 @@ func (m *PomodoroModule) CreateUI(w fyne.Window) fyne.CanvasObject {
 
 func (m *PomodoroModule) OnInit()    {}
 func (m *PomodoroModule) OnDestroy() {}
+func (m *PomodoroModule) Category() string { return "" }

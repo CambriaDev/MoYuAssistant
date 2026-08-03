@@ -18,6 +18,8 @@ type Module interface {
 	OnInit()
 	// OnDestroy is called once when the application is shutting down.
 	OnDestroy()
+	// Category returns the category this module belongs to (empty means top-level).
+	Category() string
 }
 
 // registry holds all registered modules.
