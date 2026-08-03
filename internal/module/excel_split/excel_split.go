@@ -4,11 +4,15 @@ package excel_split
 
 import (
 	"fmt"
+	"image/color"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
@@ -25,56 +29,220 @@ func init() {
 	module.Register(&ExcelSplitModule{})
 }
 
-type ExcelSplitModule struct{}
+type ExcelSplitModule struct {
+	state *appState
+}
 
 func (m *ExcelSplitModule) Name() string        { return i18n.T("MassUpload", "MassUpload") }
 func (m *ExcelSplitModule) Description() string { return i18n.T("按Sheet页拆分Excel文件", "Split Excel file by sheets") }
 func (m *ExcelSplitModule) Icon() fyne.Resource { return theme.DocumentIcon() }
+func (m *ExcelSplitModule) Category() string    { return "LonzaCN" }
+
+func (m *ExcelSplitModule) OnInit() {
+	m.state = &appState{
+		outputDir: "",
+		logWidget: newReadOnlyEntry(),
+	}
+}
+
+func (m *ExcelSplitModule) OnDestroy() {}
+
+// ---------------------------------------------------------------------------
+// Log Types & Widgets
+// ---------------------------------------------------------------------------
+
+type logLevel int
+
+const (
+	levelInfo logLevel = iota
+	levelSuccess
+	levelError
+	levelWarning
+	levelHighlight
+)
+
+type readOnlyEntry struct {
+	widget.Entry
+}
+
+func newReadOnlyEntry() *readOnlyEntry {
+	e := &readOnlyEntry{}
+	e.ExtendBaseWidget(e)
+	e.MultiLine = true
+	e.Wrapping = fyne.TextWrapWord
+	e.TextStyle = fyne.TextStyle{Monospace: true}
+	return e
+}
+
+func (e *readOnlyEntry) TypedRune(r rune) {}
+func (e *readOnlyEntry) TypedKey(k *fyne.KeyEvent) {
+	switch k.Name {
+	case fyne.KeyUp, fyne.KeyDown, fyne.KeyLeft, fyne.KeyRight, fyne.KeyPageUp, fyne.KeyPageDown, fyne.KeyHome, fyne.KeyEnd:
+		e.Entry.TypedKey(k)
+	}
+}
+func (e *readOnlyEntry) TypedShortcut(s fyne.Shortcut) {
+	if _, ok := s.(*fyne.ShortcutCopy); ok {
+		e.Entry.TypedShortcut(s)
+	}
+	if _, ok := s.(*fyne.ShortcutSelectAll); ok {
+		e.Entry.TypedShortcut(s)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Application state
+// ---------------------------------------------------------------------------
+
+type appState struct {
+	mu            sync.Mutex
+	logWidget     *readOnlyEntry
+	selectedFiles []string
+	outputDir     string
+}
+
+func (s *appState) appendLog(msg string, level logLevel) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	prefix := ""
+	switch level {
+	case levelError:
+		prefix = "[ERROR] "
+	case levelWarning:
+		prefix = "[WARN]  "
+	case levelHighlight:
+		prefix = "[OK]    "
+	case levelInfo:
+		prefix = "[INFO]  "
+	case levelSuccess:
+		prefix = "[SUCCESS]"
+	}
+	
+	formattedMsg := prefix + msg
+
+	if s.logWidget != nil {
+		current := s.logWidget.Text
+		if current != "" {
+			current += "\n"
+		}
+		current += formattedMsg
+		s.logWidget.SetText(current)
+		s.logWidget.CursorRow = len(strings.Split(current, "\n")) - 1
+	}
+}
+
+// ---------------------------------------------------------------------------
+// UI
+// ---------------------------------------------------------------------------
 
 func (m *ExcelSplitModule) CreateUI(w fyne.Window) fyne.CanvasObject {
-	title := widget.NewLabelWithStyle(i18n.T("📑 Excel按Sheet拆分", "📑 Split Excel by Sheet"), fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
-	desc := widget.NewLabel(i18n.T("选择一个Excel文件，将自动按Sheet页拆分成多个文件。", "Select an Excel file, it will be automatically split by sheets into multiple files."))
-	desc.Alignment = fyne.TextAlignCenter
+	state := m.state
 
-	statusLabel := widget.NewLabel("")
-	statusLabel.Alignment = fyne.TextAlignCenter
+	appPrefs := fyne.CurrentApp().Preferences()
+	state.outputDir = appPrefs.StringWithFallback("MassUpload_OutDir", "")
+
+	headerGrad := canvas.NewLinearGradient(
+		color.NRGBA{R: 90, G: 110, B: 140, A: 255},  
+		color.NRGBA{R: 160, G: 175, B: 190, A: 255}, 
+		-45,
+	)
+	headerText := canvas.NewText("MassUpload", color.White)
+	headerText.TextSize = 28
+	headerText.TextStyle = fyne.TextStyle{Bold: true}
+	headerText.Alignment = fyne.TextAlignCenter
 	
-	var selectedFile string
-	fileLabel := widget.NewLabel(i18n.T("未选择文件", "No file selected"))
-	fileLabel.Alignment = fyne.TextAlignCenter
+	subHeaderText := canvas.NewText(i18n.T("Excel Format Converter", "Excel Format Converter"), color.NRGBA{255, 255, 255, 200})
+	subHeaderText.TextSize = 12
+	subHeaderText.Alignment = fyne.TextAlignCenter
 
-	selectBtn := widget.NewButtonWithIcon(i18n.T("选择Excel文件", "Select Excel File"), theme.FolderOpenIcon(), func() {
+	headerContent := container.NewVBox(
+		layout.NewSpacer(),
+		headerText,
+		subHeaderText,
+		layout.NewSpacer(),
+	)
+	headerContainer := container.NewMax(headerGrad, container.NewPadded(headerContent))
+	sizedHeader := container.New(layout.NewGridWrapLayout(fyne.NewSize(320, 100)), headerContainer)
+
+	inputLabel := widget.NewLabel(i18n.T("未选择文件", "No file selected"))
+	inputLabel.Wrapping = fyne.TextWrapWord
+	inputLabel.TextStyle = fyne.TextStyle{Italic: true}
+	inputLabel.Alignment = fyne.TextAlignCenter
+
+	selectFilesBtn := widget.NewButtonWithIcon(i18n.T("添加文件", "Add Files"), theme.FolderOpenIcon(), func() {
 		go func() {
-			filename, err := zenity.SelectFile(
-				zenity.Title("Select Excel File"),
+			filenames, err := zenity.SelectFileMultiple(
+				zenity.Title("Select Excel Files"),
 				zenity.FileFilter{Name: "Excel Files", Patterns: []string{"*.xlsx", "*.XLSX"}},
 			)
 			if err != nil {
 				if err != zenity.ErrCanceled {
-					dialog.ShowError(err, w)
+					state.appendLog(fmt.Sprintf("⚠ Dialog error: %v", err), levelWarning)
 				}
 				return
 			}
-			if filename == "" {
+			if len(filenames) == 0 {
 				return
 			}
 
-			selectedFile = filename
-			fileLabel.SetText(fmt.Sprintf("%s: %s", i18n.T("已选择", "Selected"), filepath.Base(selectedFile)))
-			statusLabel.SetText("")
+			added := 0
+			for _, filename := range filenames {
+				state.selectedFiles = append(state.selectedFiles, filename)
+				added++
+				state.appendLog(fmt.Sprintf("+ Queued: %s", filepath.Base(filename)), levelHighlight)
+			}
+			inputLabel.SetText(fmt.Sprintf(i18n.T("已选择 %d 个文件", "Selected %d file(s)"), len(state.selectedFiles)))
 		}()
 	})
 
-	appPrefs := fyne.CurrentApp().Preferences()
-	lastOutDir := appPrefs.StringWithFallback("MassUpload_OutDir", "")
-	var selectedOutDir string = lastOutDir
+	addFolderBtn := widget.NewButtonWithIcon(i18n.T("添加文件夹", "Add Folder"), theme.FolderIcon(), func() {
+		go func() {
+			dir, err := zenity.SelectFile(
+				zenity.Title("Select Source Folder"),
+				zenity.Directory(),
+			)
+			if err != nil {
+				if err != zenity.ErrCanceled {
+					state.appendLog(fmt.Sprintf("⚠ Dialog error: %v", err), levelWarning)
+				}
+				return
+			}
+			if dir == "" {
+				return
+			}
+			files, err := os.ReadDir(dir)
+			if err != nil {
+				state.appendLog(fmt.Sprintf("⚠ Folder read error: %v", err), levelWarning)
+				return
+			}
+			added := 0
+			for _, file := range files {
+				if !file.IsDir() && strings.HasSuffix(strings.ToLower(file.Name()), ".xlsx") && strings.HasPrefix(file.Name(), "LZACN_") {
+					state.selectedFiles = append(state.selectedFiles, filepath.Join(dir, file.Name()))
+					state.appendLog(fmt.Sprintf("+ Queued from dir: %s", file.Name()), levelHighlight)
+					added++
+				}
+			}
+			inputLabel.SetText(fmt.Sprintf(i18n.T("已选择 %d 个文件", "Selected %d file(s)"), len(state.selectedFiles)))
+			if added == 0 {
+				state.appendLog(fmt.Sprintf("⚠ No LZACN_ *.xlsx found in %s", filepath.Base(dir)), levelWarning)
+			}
+		}()
+	})
+
+	clearBtn := widget.NewButtonWithIcon(i18n.T("清除", "Clear"), theme.ContentClearIcon(), func() {
+		state.selectedFiles = nil
+		inputLabel.SetText(i18n.T("未选择文件", "No file selected"))
+		state.appendLog("Cleared selected files.", levelInfo)
+	})
 
 	outDirLabel := widget.NewLabel("")
 	outDirLabel.Alignment = fyne.TextAlignCenter
-	if selectedOutDir == "" {
+	if state.outputDir == "" {
 		outDirLabel.SetText(i18n.T("输出目录: (默认同源文件目录)", "Output Dir: (Default same as source)"))
 	} else {
-		outDirLabel.SetText(i18n.T("输出目录: ", "Output Dir: ") + selectedOutDir)
+		outDirLabel.SetText(i18n.T("输出目录: ", "Output Dir: ") + state.outputDir)
 	}
 
 	selectOutDirBtn := widget.NewButtonWithIcon(i18n.T("选择输出目录", "Select Output Dir"), theme.FolderIcon(), func() {
@@ -85,7 +253,7 @@ func (m *ExcelSplitModule) CreateUI(w fyne.Window) fyne.CanvasObject {
 			)
 			if err != nil {
 				if err != zenity.ErrCanceled {
-					dialog.ShowError(err, w)
+					state.appendLog(fmt.Sprintf("⚠ Dialog error: %v", err), levelWarning)
 				}
 				return
 			}
@@ -93,51 +261,71 @@ func (m *ExcelSplitModule) CreateUI(w fyne.Window) fyne.CanvasObject {
 				return
 			}
 			
-			selectedOutDir = dir
-			appPrefs.SetString("MassUpload_OutDir", selectedOutDir)
-			outDirLabel.SetText(i18n.T("输出目录: ", "Output Dir: ") + selectedOutDir)
+			state.outputDir = dir
+			appPrefs.SetString("MassUpload_OutDir", state.outputDir)
+			outDirLabel.SetText(i18n.T("输出目录: ", "Output Dir: ") + state.outputDir)
+			state.appendLog(fmt.Sprintf("Set output directory to: %s", dir), levelInfo)
 		}()
 	})
 
-	processBtn := widget.NewButtonWithIcon(i18n.T("开始拆分", "Start Splitting"), theme.MediaPlayIcon(), func() {
-		if selectedFile == "" {
-			dialog.ShowInformation(i18n.T("提示", "Info"), i18n.T("请先选择一个Excel文件", "Please select an Excel file first"), w)
+	var processBtn *widget.Button
+	processBtn = widget.NewButtonWithIcon(i18n.T("开始转换", "Start Conversion"), theme.MediaPlayIcon(), func() {
+		if len(state.selectedFiles) == 0 {
+			dialog.ShowInformation(i18n.T("提示", "Info"), i18n.T("请先选择Excel文件或目录", "Please select Excel files or directory"), w)
 			return
 		}
 		
-		statusLabel.SetText(i18n.T("正在处理中...", "Processing..."))
+		processBtn.Disable()
+		state.appendLog(fmt.Sprintf("Starting conversion for %d files...", len(state.selectedFiles)), levelInfo)
 		
 		go func() {
-			err := splitExcelFile(selectedFile, selectedOutDir)
-			if err != nil {
-				statusLabel.SetText(fmt.Sprintf("%s: %v", i18n.T("处理失败", "Failed"), err))
-			} else {
-				statusLabel.SetText(i18n.T("拆分完成！", "Split successfully!"))
+			successCount := 0
+			failCount := 0
+			for i, file := range state.selectedFiles {
+				state.appendLog(fmt.Sprintf("Processing (%d/%d): %s", i+1, len(state.selectedFiles), filepath.Base(file)), levelInfo)
+				err := splitExcelFile(file, state.outputDir)
+				if err != nil {
+					state.appendLog(fmt.Sprintf("Failed %s: %v", filepath.Base(file), err), levelError)
+					failCount++
+				} else {
+					state.appendLog(fmt.Sprintf("Successfully processed %s", filepath.Base(file)), levelSuccess)
+					successCount++
+				}
 			}
+			state.appendLog(fmt.Sprintf("Done! Success: %d, Failed: %d", successCount, failCount), levelInfo)
+			processBtn.Enable()
 		}()
 	})
 	processBtn.Importance = widget.HighImportance
 
-	return container.New(layout.NewVBoxLayout(),
-		title,
-		desc,
-		layout.NewSpacer(),
-		fileLabel,
-		container.NewHBox(layout.NewSpacer(), selectBtn, layout.NewSpacer()),
-		layout.NewSpacer(),
-		outDirLabel,
+	inputControls := container.NewVBox(
+		container.NewHBox(layout.NewSpacer(), selectFilesBtn, addFolderBtn, clearBtn, layout.NewSpacer()),
+		inputLabel,
+		widget.NewSeparator(),
 		container.NewHBox(layout.NewSpacer(), selectOutDirBtn, layout.NewSpacer()),
-		layout.NewSpacer(),
+		outDirLabel,
+		widget.NewSeparator(),
 		container.NewHBox(layout.NewSpacer(), processBtn, layout.NewSpacer()),
-		layout.NewSpacer(),
-		statusLabel,
-		layout.NewSpacer(),
+	)
+
+	logScroll := container.NewScroll(state.logWidget)
+
+	return container.NewBorder(
+		container.NewVBox(
+			sizedHeader,
+			container.NewPadded(inputControls),
+			widget.NewSeparator(),
+		),
+		nil,
+		nil,
+		nil,
+		container.NewPadded(logScroll),
 	)
 }
 
-func (m *ExcelSplitModule) OnInit()    {}
-func (m *ExcelSplitModule) OnDestroy() {}
-func (m *ExcelSplitModule) Category() string { return "LonzaCN" }
+// ---------------------------------------------------------------------------
+// Processing Logic
+// ---------------------------------------------------------------------------
 
 type SheetConfig struct {
 	TemplateFile       string
