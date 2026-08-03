@@ -142,11 +142,16 @@ func (m *ExcelSplitModule) CreateUI(w fyne.Window) fyne.CanvasObject {
 	appPrefs := fyne.CurrentApp().Preferences()
 	state.outputDir = appPrefs.StringWithFallback("MassUpload_OutDir", "")
 
-	headerGrad := canvas.NewLinearGradient(
-		color.NRGBA{R: 90, G: 110, B: 140, A: 255},  
-		color.NRGBA{R: 160, G: 175, B: 190, A: 255}, 
-		-45,
-	)
+	var startColor, endColor color.Color
+	if fyne.CurrentApp().Settings().ThemeVariant() == theme.VariantDark {
+		startColor = color.NRGBA{R: 144, G: 80, B: 168, A: 255} // #9050a8
+		endColor = color.NRGBA{R: 75, G: 108, B: 183, A: 255}   // #4b6cb7
+	} else {
+		startColor = color.NRGBA{R: 90, G: 110, B: 140, A: 255}
+		endColor = color.NRGBA{R: 160, G: 175, B: 190, A: 255}
+	}
+
+	headerGrad := canvas.NewLinearGradient(startColor, endColor, -45)
 	headerText := canvas.NewText("MassUpload", color.White)
 	headerText.TextSize = 28
 	headerText.TextStyle = fyne.TextStyle{Bold: true}
@@ -168,7 +173,7 @@ func (m *ExcelSplitModule) CreateUI(w fyne.Window) fyne.CanvasObject {
 	inputLabel := widget.NewLabel(i18n.T("未选择文件", "No file selected"))
 	inputLabel.Wrapping = fyne.TextWrapWord
 	inputLabel.TextStyle = fyne.TextStyle{Italic: true}
-	inputLabel.Alignment = fyne.TextAlignCenter
+	inputLabel.Alignment = fyne.TextAlignLeading
 
 	selectFilesBtn := widget.NewButtonWithIcon(i18n.T("添加文件", "Add Files"), theme.FolderOpenIcon(), func() {
 		go func() {
@@ -238,7 +243,7 @@ func (m *ExcelSplitModule) CreateUI(w fyne.Window) fyne.CanvasObject {
 	})
 
 	outDirLabel := widget.NewLabel("")
-	outDirLabel.Alignment = fyne.TextAlignCenter
+	outDirLabel.Alignment = fyne.TextAlignLeading
 	if state.outputDir == "" {
 		outDirLabel.SetText(i18n.T("输出目录: (默认同源文件目录)", "Output Dir: (Default same as source)"))
 	} else {
@@ -298,29 +303,56 @@ func (m *ExcelSplitModule) CreateUI(w fyne.Window) fyne.CanvasObject {
 	})
 	processBtn.Importance = widget.HighImportance
 
+	inputBtns := container.NewGridWithColumns(2, selectFilesBtn, addFolderBtn)
+	
 	inputControls := container.NewVBox(
-		container.NewHBox(layout.NewSpacer(), selectFilesBtn, addFolderBtn, clearBtn, layout.NewSpacer()),
+		widget.NewLabelWithStyle(i18n.T("输入设置", "Input Settings"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		container.NewBorder(nil, nil, nil, clearBtn, inputBtns),
 		inputLabel,
-		widget.NewSeparator(),
-		container.NewHBox(layout.NewSpacer(), selectOutDirBtn, layout.NewSpacer()),
+	)
+
+	outputControls := container.NewVBox(
+		widget.NewLabelWithStyle(i18n.T("输出设置", "Output Settings"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		selectOutDirBtn,
 		outDirLabel,
+	)
+
+	controlsContainer := container.NewVBox(
+		inputControls,
 		widget.NewSeparator(),
-		container.NewHBox(layout.NewSpacer(), processBtn, layout.NewSpacer()),
+		outputControls,
 	)
 
-	logScroll := container.NewScroll(state.logWidget)
-
-	return container.NewBorder(
-		container.NewVBox(
-			sizedHeader,
-			container.NewPadded(inputControls),
-			widget.NewSeparator(),
-		),
-		nil,
-		nil,
-		nil,
-		container.NewPadded(logScroll),
+	sidebar := container.NewBorder(
+		sizedHeader,
+		container.NewPadded(processBtn),
+		nil, nil,
+		container.NewVScroll(container.NewPadded(controlsContainer)),
 	)
+
+	logTitle := widget.NewLabelWithStyle(i18n.T("控制台输出", "Console Output"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	
+	clearConsoleBtn := widget.NewButton(i18n.T("清空", "Clear"), func() {
+		state.mu.Lock()
+		state.logWidget.SetText("")
+		state.mu.Unlock()
+	})
+	
+	logHeader := container.NewBorder(nil, nil, logTitle, clearConsoleBtn)
+	
+	logArea := container.NewBorder(
+		container.NewVBox(logHeader, widget.NewSeparator()),
+		nil, nil, nil,
+		state.logWidget,
+	)
+
+	split := container.NewHSplit(
+		sidebar,
+		container.NewPadded(logArea),
+	)
+	split.Offset = 0.35 
+
+	return split
 }
 
 // ---------------------------------------------------------------------------
