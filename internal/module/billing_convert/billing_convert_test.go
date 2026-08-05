@@ -35,6 +35,18 @@ func TestConvertBillingCreatesUploadFiles(t *testing.T) {
 	if err := source.SetCellValue(sheet, "C4", "20.75"); err != nil {
 		t.Fatal(err)
 	}
+	if err := source.SetCellValue(sheet, "A5", ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := source.SetCellValue(sheet, "B5", "30.00"); err != nil {
+		t.Fatal(err)
+	}
+	if err := source.SetCellValue(sheet, "A6", "10002A"); err != nil {
+		t.Fatal(err)
+	}
+	if err := source.SetCellValue(sheet, "B6", "40.00"); err != nil {
+		t.Fatal(err)
+	}
 	if err := source.SaveAs(sourcePath); err != nil {
 		t.Fatal(err)
 	}
@@ -82,5 +94,23 @@ func TestConvertBillingCreatesUploadFiles(t *testing.T) {
 	}
 	if lines := strings.Split(strings.TrimSpace(string(textFile)), "\n"); len(lines) != 3 {
 		t.Fatalf("text lines = %d, want 3", len(lines))
+	}
+}
+
+func TestIsNumericEmployeeNumber(t *testing.T) {
+	for _, testCase := range []struct {
+		value string
+		want  bool
+	}{
+		{value: "10001", want: true},
+		{value: "00123", want: true},
+		{value: "", want: false},
+		{value: " ", want: false},
+		{value: "10001A", want: false},
+		{value: "100.01", want: false},
+	} {
+		if got := isNumericEmployeeNumber(testCase.value); got != testCase.want {
+			t.Errorf("isNumericEmployeeNumber(%q) = %t, want %t", testCase.value, got, testCase.want)
+		}
 	}
 }

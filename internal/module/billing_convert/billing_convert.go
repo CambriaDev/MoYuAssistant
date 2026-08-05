@@ -360,7 +360,7 @@ func convertBilling(config billingConfig) (conversionResult, error) {
 	targetRow := 2
 	for rowIndex := config.startRow - 1; rowIndex < len(rows); rowIndex++ {
 		row := rows[rowIndex]
-		if len(row) <= perNoColumn || strings.TrimSpace(row[perNoColumn]) == "" {
+		if len(row) <= perNoColumn || !isNumericEmployeeNumber(row[perNoColumn]) {
 			continue
 		}
 		for column, code := range codeByColumn {
@@ -409,6 +409,18 @@ func parseMappings(raw string) map[string]string {
 		}
 	}
 	return mappings
+}
+
+func isNumericEmployeeNumber(value string) bool {
+	if value == "" {
+		return false
+	}
+	for _, character := range value {
+		if character < '0' || character > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func writeTextChunks(output *excelize.File, sheet, outputDir string, rowCount int) error {
