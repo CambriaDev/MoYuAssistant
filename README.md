@@ -41,11 +41,24 @@ make run
 make build-win
 ```
 
+## MaerskCN BillingConvert
+
+在左侧菜单中打开 **MaerskCN → BillingConvert**，选择账单 Excel 文件后即可转换为批量上传格式。文件和目录选择使用系统原生选择器；输出目录留空时，结果会保存到源文件所在目录。
+
+可配置员工编号列、生效日期、数据起始行、表头行以及“表头=上传代码”映射。员工编号为空或包含非数字字符的源数据行会被跳过。
+
+每次转换会生成一个包含全部结果的 `MaerskLine*.xlsx`，并额外生成：
+
+- `ML1`、`ML2` 等工作表：每个工作表包含表头和最多 5,000 条数据。
+- `ML1.txt`、`ML2.txt` 等文本文件：内容与对应的 `ML` 工作表一致。
+
+BillingConvert 的配置通过应用 Preferences 持久化，与应用其他设置使用相同的配置目录。
+
 ## 手动编译
 
 ```bash
 # 编译全部模块
-go build -tags "module_clock module_todo module_pomodoro module_notes" -o moyu-assistant .
+go build -tags "module_clock module_todo module_pomodoro module_notes module_jiggler module_excel_split module_billing_convert" -o moyu-assistant .
 
 # 只要时钟和待办
 go build -tags "module_clock module_todo" -o moyu-assistant .
@@ -68,13 +81,15 @@ GOOS=windows GOARCH=amd64 go build -tags "module_clock module_todo" -ldflags "-H
 │   │   ├── clock.go
 │   │   ├── todo.go
 │   │   ├── pomodoro.go
-│   │   └── notes.go
+│   │   ├── notes.go
+│   │   └── billing_convert.go
 │   └── module/
 │       ├── registry.go              # 模块注册接口
 │       ├── clock/clock.go           # //go:build module_clock
 │       ├── todo/todo.go             # //go:build module_todo
 │       ├── pomodoro/pomodoro.go     # //go:build module_pomodoro
-│       └── notes/notes.go          # //go:build module_notes
+│       ├── notes/notes.go           # //go:build module_notes
+│       └── billing_convert/         # //go:build module_billing_convert
 ```
 
 ## 添加新模块
