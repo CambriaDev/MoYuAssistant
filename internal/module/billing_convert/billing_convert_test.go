@@ -44,7 +44,6 @@ func TestConvertBillingCreatesUploadFiles(t *testing.T) {
 
 	result, err := convertBilling(billingConfig{
 		sourcePath: sourcePath,
-		outputPath: filepath.Join(tempDir, "output"),
 		perNoCol:   "A",
 		useDate:    "20260815",
 		startRow:   4,
@@ -56,6 +55,9 @@ func TestConvertBillingCreatesUploadFiles(t *testing.T) {
 	}
 	if result.rowCount != 2 {
 		t.Fatalf("rowCount = %d, want 2", result.rowCount)
+	}
+	if result.outputDir != tempDir {
+		t.Fatalf("outputDir = %q, want source directory %q", result.outputDir, tempDir)
 	}
 
 	output, err := excelize.OpenFile(result.excelPath)

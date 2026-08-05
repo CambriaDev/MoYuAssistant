@@ -16,6 +16,7 @@ import (
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"github.com/ncruces/zenity"
 	"github.com/xuri/excelize/v2"
 
 	"moyu-assistant/internal/i18n"
@@ -127,32 +128,44 @@ func (m *BillingConvertModule) CreateUI(window fyne.Window) fyne.CanvasObject {
 	sourceEntry.Disable()
 
 	selectSourceButton := widget.NewButtonWithIcon(i18n.T("选择账单文件", "Select Billing File"), theme.FolderOpenIcon(), func() {
-		dialog.ShowFileOpen(func(reader fyne.URIReadCloser, err error) {
+		go func() {
+			filename, err := zenity.SelectFile(
+				zenity.Title(i18n.T("选择账单文件", "Select Billing File")),
+				zenity.FileFilter{Name: "Excel Files", Patterns: []string{"*.xlsx", "*.XLSX"}},
+			)
 			if err != nil {
-				m.state.appendLog(fmt.Sprintf("选择文件失败: %v", err))
+				if err != zenity.ErrCanceled {
+					m.state.appendLog(fmt.Sprintf("选择文件失败: %v", err))
+				}
 				return
 			}
-			if reader == nil {
+			if filename == "" {
 				return
 			}
-			sourceEntry.SetText(reader.URI().Path())
-			_ = reader.Close()
-		}, window)
+			sourceEntry.SetText(filename)
+		}()
 	})
 
 	outputEntry := widget.NewEntry()
 	outputEntry.SetText(config.outputPath)
+	outputEntry.SetPlaceHolder(i18n.T("默认与输入文件相同的目录", "Default: same directory as source file"))
 
 	selectOutputButton := widget.NewButtonWithIcon(i18n.T("选择输出目录", "Select Output Folder"), theme.FolderIcon(), func() {
-		dialog.ShowFolderOpen(func(uri fyne.ListableURI, err error) {
+		go func() {
+			dir, err := zenity.SelectFile(
+				zenity.Title(i18n.T("选择输出目录", "Select Output Folder")),
+				zenity.Directory(),
+			)
 			if err != nil {
-				m.state.appendLog(fmt.Sprintf("选择输出目录失败: %v", err))
+				if err != zenity.ErrCanceled {
+					m.state.appendLog(fmt.Sprintf("选择输出目录失败: %v", err))
+				}
 				return
 			}
-			if uri != nil {
-				outputEntry.SetText(uri.Path())
+			if dir != "" {
+				outputEntry.SetText(dir)
 			}
-		}, window)
+		}()
 	})
 
 	perNoEntry := widget.NewEntry()
@@ -234,7 +247,7 @@ func (m *BillingConvertModule) CreateUI(window fyne.Window) fyne.CanvasObject {
 func loadConfig(prefs fyne.Preferences) billingConfig {
 	return billingConfig{
 		sourcePath: prefs.String(preferencePrefix + "SourcePath"),
-		outputPath: prefs.StringWithFallback(preferencePrefix+"OutputPath", "regular"),
+		outputPath: prefs.String(preferencePrefix + "OutputPath"),
 		perNoCol:   prefs.StringWithFallback(preferencePrefix+"PerNoColumn", "B"),
 		useDate:    prefs.StringWithFallback(preferencePrefix+"UseDate", time.Now().Format("200601")+"15"),
 		startRow:   prefs.IntWithFallback(preferencePrefix+"StartRow", 4),
@@ -246,9 +259,6 @@ func loadConfig(prefs fyne.Preferences) billingConfig {
 func readConfig(sourcePath, outputPath, perNoCol, useDate, startRow, titleRow, mappings string) (billingConfig, error) {
 	if strings.TrimSpace(sourcePath) == "" {
 		return billingConfig{}, fmt.Errorf("请选择账单 Excel 文件")
-	}
-	if strings.TrimSpace(outputPath) == "" {
-		return billingConfig{}, fmt.Errorf("请输入输出目录")
 	}
 	if strings.TrimSpace(perNoCol) == "" {
 		return billingConfig{}, fmt.Errorf("请输入员工编号列")
@@ -370,7 +380,9 @@ func convertBilling(config billingConfig) (conversionResult, error) {
 	}
 
 	outputDir := config.outputPath
-	if !filepath.IsAbs(outputDir) {
+	if outputDir == "" {
+		outputDir = filepath.Dir(config.sourcePath)
+	} else if !filepath.IsAbs(outputDir) {
 		outputDir = filepath.Clean(outputDir)
 	}
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
