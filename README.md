@@ -17,6 +17,7 @@
 | ✅ 待办事项 | `module_todo` | 任务管理 |
 | 🍅 番茄钟 | `module_pomodoro` | 工作/休息计时器 |
 | 📝 快捷笔记 | `module_notes` | 快速文本记录 |
+| 📄 MaerskCN BillingConvert | `module_billing_convert` | 社保、公积金账单批量上传文件转换 |
 
 ## 快速开始
 

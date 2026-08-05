@@ -1,7 +1,7 @@
 APP_NAME := moyu-assistant
 
 # All available modules
-ALL_MODULES := module_clock module_todo module_pomodoro module_notes module_jiggler module_excel_split
+ALL_MODULES := module_clock module_todo module_pomodoro module_notes module_jiggler module_excel_split module_billing_convert
 
 # Default: build with all modules (override with: make build MODULES="module_clock module_todo")
 MODULES ?= $(ALL_MODULES)
@@ -52,6 +52,7 @@ help:
 	@echo "  module_notes     - 快捷笔记"
 	@echo "  module_jiggler   - 防锁屏"
 	@echo "  module_excel_split - Excel拆分"
+	@echo "  module_billing_convert - MaerskCN 账单批量上传转换"
 	@echo ""
 	@echo "使用示例:"
 	@echo "  make build                                        # 编译所有模块"
