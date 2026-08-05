@@ -78,8 +78,15 @@ func TestConvertBillingCreatesUploadFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer output.Close()
-	if sheetNames := output.GetSheetList(); len(sheetNames) != 1 || sheetNames[0] != "ML1" {
-		t.Fatalf("sheet names = %v, want [ML1]", sheetNames)
+	if sheetNames := output.GetSheetList(); strings.Join(sheetNames, ",") != "Sheet1,ML1" {
+		t.Fatalf("sheet names = %v, want [Sheet1 ML1]", sheetNames)
+	}
+	allRows, err := output.GetRows("Sheet1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(allRows) != 3 {
+		t.Fatalf("all-data rows = %d, want 3", len(allRows))
 	}
 	rows, err := output.GetRows("ML1")
 	if err != nil {
@@ -166,8 +173,15 @@ func TestConvertBillingSplitsSheetsAndTextFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer output.Close()
-	if sheetNames := output.GetSheetList(); strings.Join(sheetNames, ",") != "ML1,ML2" {
-		t.Fatalf("sheet names = %v, want [ML1 ML2]", sheetNames)
+	if sheetNames := output.GetSheetList(); strings.Join(sheetNames, ",") != "Sheet1,ML1,ML2" {
+		t.Fatalf("sheet names = %v, want [Sheet1 ML1 ML2]", sheetNames)
+	}
+	allRows, err := output.GetRows("Sheet1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(allRows) != chunkSize+2 {
+		t.Fatalf("all-data rows = %d, want %d", len(allRows), chunkSize+2)
 	}
 	for sheetName, wantRows := range map[string]int{"ML1": chunkSize + 1, "ML2": 2} {
 		rows, err := output.GetRows(sheetName)

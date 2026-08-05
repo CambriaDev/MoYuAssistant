@@ -350,15 +350,13 @@ func convertBilling(config billingConfig) (conversionResult, error) {
 	output := excelize.NewFile()
 	defer output.Close()
 	headers := []string{"PERNR", "SUBTY", "BEGDA", "BETRG"}
-	outputSheet := "ML1"
-	if err := output.SetSheetName(output.GetSheetName(output.GetActiveSheetIndex()), outputSheet); err != nil {
-		return conversionResult{}, fmt.Errorf("创建输出工作表失败: %w", err)
-	}
-	if err := writeSheetHeaders(output, outputSheet, headers); err != nil {
+	allDataSheet := output.GetSheetName(output.GetActiveSheetIndex())
+	if err := writeSheetHeaders(output, allDataSheet, headers); err != nil {
 		return conversionResult{}, err
 	}
 
 	rowCount := 0
+	chunkSheet := ""
 	for rowIndex := config.startRow - 1; rowIndex < len(rows); rowIndex++ {
 		row := rows[rowIndex]
 		if len(row) <= perNoColumn || !isNumericEmployeeNumber(row[perNoColumn]) {
@@ -373,20 +371,20 @@ func convertBilling(config billingConfig) (conversionResult, error) {
 			sheetNumber := rowCount/chunkSize + 1
 			targetRow := rowCount%chunkSize + 2
 			sheetName := fmt.Sprintf("ML%d", sheetNumber)
-			if sheetName != outputSheet {
+			if sheetName != chunkSheet {
 				if _, err := output.NewSheet(sheetName); err != nil {
 					return conversionResult{}, fmt.Errorf("创建输出工作表失败: %w", err)
 				}
 				if err := writeSheetHeaders(output, sheetName, headers); err != nil {
 					return conversionResult{}, err
 				}
-				outputSheet = sheetName
+				chunkSheet = sheetName
 			}
-			for index, value := range values {
-				cell, _ := excelize.CoordinatesToCellName(index+1, targetRow)
-				if err := output.SetCellValue(outputSheet, cell, value); err != nil {
-					return conversionResult{}, fmt.Errorf("写入第 %d 行失败: %w", targetRow, err)
-				}
+			if err := writeSheetRow(output, allDataSheet, rowCount+2, values); err != nil {
+				return conversionResult{}, err
+			}
+			if err := writeSheetRow(output, chunkSheet, targetRow, values); err != nil {
+				return conversionResult{}, err
 			}
 			rowCount++
 		}
@@ -446,8 +444,21 @@ func writeSheetHeaders(output *excelize.File, sheet string, headers []string) er
 	return nil
 }
 
+func writeSheetRow(output *excelize.File, sheet string, row int, values []string) error {
+	for index, value := range values {
+		cell, _ := excelize.CoordinatesToCellName(index+1, row)
+		if err := output.SetCellValue(sheet, cell, value); err != nil {
+			return fmt.Errorf("写入工作表 %s 的第 %d 行失败: %w", sheet, row, err)
+		}
+	}
+	return nil
+}
+
 func writeTextChunks(output *excelize.File, outputDir string) error {
 	for _, sheet := range output.GetSheetList() {
+		if !isChunkSheetName(sheet) {
+			continue
+		}
 		rows, err := output.GetRows(sheet)
 		if err != nil {
 			return fmt.Errorf("读取工作表 %s 失败: %w", sheet, err)
@@ -477,4 +488,12 @@ func writeTextChunks(output *excelize.File, outputDir string) error {
 		}
 	}
 	return nil
+}
+
+func isChunkSheetName(sheet string) bool {
+	if !strings.HasPrefix(sheet, "ML") {
+		return false
+	}
+	_, err := strconv.Atoi(strings.TrimPrefix(sheet, "ML"))
+	return err == nil
 }
