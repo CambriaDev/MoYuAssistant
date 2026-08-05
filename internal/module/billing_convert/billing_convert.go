@@ -25,6 +25,7 @@ import (
 
 const (
 	preferencePrefix = "BillingConvert_"
+	chunkSize        = 5000
 	defaultMappings  = "养老公司含补缴总计=9004\n养老个人含补缴总计=9003\n医疗公司含补缴总计=9008\n医疗个人含补缴总计=9007\n失业公司含补缴总计=9006\n失业个人含补缴总计=9005\n生育公司含补缴总计=9013\n工伤工公司含补缴总计=9011\n公积金公司含补缴总计=9015\n公积金个人含补缴总计=9014"
 )
 
@@ -348,16 +349,16 @@ func convertBilling(config billingConfig) (conversionResult, error) {
 
 	output := excelize.NewFile()
 	defer output.Close()
-	outputSheet := output.GetSheetName(output.GetActiveSheetIndex())
 	headers := []string{"PERNR", "SUBTY", "BEGDA", "BETRG"}
-	for index, header := range headers {
-		cell, _ := excelize.CoordinatesToCellName(index+1, 1)
-		if err := output.SetCellValue(outputSheet, cell, header); err != nil {
-			return conversionResult{}, fmt.Errorf("写入输出表头失败: %w", err)
-		}
+	outputSheet := "ML1"
+	if err := output.SetSheetName(output.GetSheetName(output.GetActiveSheetIndex()), outputSheet); err != nil {
+		return conversionResult{}, fmt.Errorf("创建输出工作表失败: %w", err)
+	}
+	if err := writeSheetHeaders(output, outputSheet, headers); err != nil {
+		return conversionResult{}, err
 	}
 
-	targetRow := 2
+	rowCount := 0
 	for rowIndex := config.startRow - 1; rowIndex < len(rows); rowIndex++ {
 		row := rows[rowIndex]
 		if len(row) <= perNoColumn || !isNumericEmployeeNumber(row[perNoColumn]) {
@@ -369,13 +370,25 @@ func convertBilling(config billingConfig) (conversionResult, error) {
 				value = row[column]
 			}
 			values := []string{row[perNoColumn], code, config.useDate, value}
+			sheetNumber := rowCount/chunkSize + 1
+			targetRow := rowCount%chunkSize + 2
+			sheetName := fmt.Sprintf("ML%d", sheetNumber)
+			if sheetName != outputSheet {
+				if _, err := output.NewSheet(sheetName); err != nil {
+					return conversionResult{}, fmt.Errorf("创建输出工作表失败: %w", err)
+				}
+				if err := writeSheetHeaders(output, sheetName, headers); err != nil {
+					return conversionResult{}, err
+				}
+				outputSheet = sheetName
+			}
 			for index, value := range values {
 				cell, _ := excelize.CoordinatesToCellName(index+1, targetRow)
 				if err := output.SetCellValue(outputSheet, cell, value); err != nil {
 					return conversionResult{}, fmt.Errorf("写入第 %d 行失败: %w", targetRow, err)
 				}
 			}
-			targetRow++
+			rowCount++
 		}
 	}
 
@@ -393,11 +406,11 @@ func convertBilling(config billingConfig) (conversionResult, error) {
 	if err := output.SaveAs(excelPath); err != nil {
 		return conversionResult{}, fmt.Errorf("保存 Excel 文件失败: %w", err)
 	}
-	if err := writeTextChunks(output, outputSheet, outputDir, targetRow-1); err != nil {
+	if err := writeTextChunks(output, outputDir); err != nil {
 		return conversionResult{}, err
 	}
 
-	return conversionResult{outputDir: outputDir, excelPath: excelPath, rowCount: targetRow - 2}, nil
+	return conversionResult{outputDir: outputDir, excelPath: excelPath, rowCount: rowCount}, nil
 }
 
 func parseMappings(raw string) map[string]string {
@@ -423,28 +436,31 @@ func isNumericEmployeeNumber(value string) bool {
 	return true
 }
 
-func writeTextChunks(output *excelize.File, sheet, outputDir string, rowCount int) error {
-	rows, err := output.GetRows(sheet)
-	if err != nil {
-		return fmt.Errorf("读取转换结果失败: %w", err)
-	}
-	if len(rows) == 0 {
-		return fmt.Errorf("转换结果缺少表头")
-	}
-
-	const chunkSize = 5000
-	for offset := 0; offset < rowCount; offset += chunkSize {
-		end := offset + chunkSize
-		if end > rowCount {
-			end = rowCount
+func writeSheetHeaders(output *excelize.File, sheet string, headers []string) error {
+	for index, header := range headers {
+		cell, _ := excelize.CoordinatesToCellName(index+1, 1)
+		if err := output.SetCellValue(sheet, cell, header); err != nil {
+			return fmt.Errorf("写入输出表头失败: %w", err)
 		}
-		file, err := os.Create(filepath.Join(outputDir, fmt.Sprintf("ML%d.txt", offset/chunkSize+1)))
+	}
+	return nil
+}
+
+func writeTextChunks(output *excelize.File, outputDir string) error {
+	for _, sheet := range output.GetSheetList() {
+		rows, err := output.GetRows(sheet)
+		if err != nil {
+			return fmt.Errorf("读取工作表 %s 失败: %w", sheet, err)
+		}
+		if len(rows) == 0 {
+			return fmt.Errorf("工作表 %s 缺少表头", sheet)
+		}
+		file, err := os.Create(filepath.Join(outputDir, sheet+".txt"))
 		if err != nil {
 			return fmt.Errorf("创建文本文件失败: %w", err)
 		}
-
-		_, writeErr := file.WriteString(strings.Join(rows[0], "\t") + "\n")
-		for _, row := range rows[offset+1 : end+1] {
+		writeErr := error(nil)
+		for _, row := range rows {
 			for len(row) < 4 {
 				row = append(row, "")
 			}

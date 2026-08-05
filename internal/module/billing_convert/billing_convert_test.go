@@ -3,6 +3,7 @@
 package billing_convert
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -77,7 +78,10 @@ func TestConvertBillingCreatesUploadFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer output.Close()
-	rows, err := output.GetRows(output.GetSheetName(output.GetActiveSheetIndex()))
+	if sheetNames := output.GetSheetList(); len(sheetNames) != 1 || sheetNames[0] != "ML1" {
+		t.Fatalf("sheet names = %v, want [ML1]", sheetNames)
+	}
+	rows, err := output.GetRows("ML1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,6 +99,7 @@ func TestConvertBillingCreatesUploadFiles(t *testing.T) {
 	if lines := strings.Split(strings.TrimSpace(string(textFile)), "\n"); len(lines) != 3 {
 		t.Fatalf("text lines = %d, want 3", len(lines))
 	}
+	assertTextMatchesSheet(t, string(textFile), rows)
 }
 
 func TestIsNumericEmployeeNumber(t *testing.T) {
@@ -112,5 +117,85 @@ func TestIsNumericEmployeeNumber(t *testing.T) {
 		if got := isNumericEmployeeNumber(testCase.value); got != testCase.want {
 			t.Errorf("isNumericEmployeeNumber(%q) = %t, want %t", testCase.value, got, testCase.want)
 		}
+	}
+}
+
+func TestConvertBillingSplitsSheetsAndTextFiles(t *testing.T) {
+	tempDir := t.TempDir()
+	sourcePath := filepath.Join(tempDir, "source.xlsx")
+	source := excelize.NewFile()
+	sheet := source.GetSheetName(source.GetActiveSheetIndex())
+	for cell, value := range map[string]string{
+		"A2": "员工编号",
+		"B2": "养老公司含补缴总计",
+	} {
+		if err := source.SetCellValue(sheet, cell, value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for index := 0; index <= chunkSize; index++ {
+		row := index + 4
+		if err := source.SetCellValue(sheet, fmt.Sprintf("A%d", row), fmt.Sprintf("%05d", index+1)); err != nil {
+			t.Fatal(err)
+		}
+		if err := source.SetCellValue(sheet, fmt.Sprintf("B%d", row), "10.00"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := source.SaveAs(sourcePath); err != nil {
+		t.Fatal(err)
+	}
+	if err := source.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := convertBilling(billingConfig{
+		sourcePath: sourcePath,
+		perNoCol:   "A",
+		useDate:    "20260815",
+		startRow:   4,
+		titleRow:   2,
+		mappings:   "养老公司含补缴总计=9004",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	output, err := excelize.OpenFile(result.excelPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer output.Close()
+	if sheetNames := output.GetSheetList(); strings.Join(sheetNames, ",") != "ML1,ML2" {
+		t.Fatalf("sheet names = %v, want [ML1 ML2]", sheetNames)
+	}
+	for sheetName, wantRows := range map[string]int{"ML1": chunkSize + 1, "ML2": 2} {
+		rows, err := output.GetRows(sheetName)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(rows) != wantRows {
+			t.Fatalf("%s rows = %d, want %d", sheetName, len(rows), wantRows)
+		}
+		text, err := os.ReadFile(filepath.Join(result.outputDir, sheetName+".txt"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertTextMatchesSheet(t, string(text), rows)
+	}
+}
+
+func assertTextMatchesSheet(t *testing.T, text string, rows [][]string) {
+	t.Helper()
+	var expected strings.Builder
+	for _, row := range rows {
+		for len(row) < 4 {
+			row = append(row, "")
+		}
+		expected.WriteString(strings.Join(row[:4], "\t"))
+		expected.WriteByte('\n')
+	}
+	if text != expected.String() {
+		t.Fatal("text file content does not match its worksheet")
 	}
 }
