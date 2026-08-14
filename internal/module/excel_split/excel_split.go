@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -267,7 +268,7 @@ func (m *ExcelSplitModule) CreateUI(w fyne.Window) fyne.CanvasObject {
 					failCount++
 				} else {
 					if len(convertedSheets) == 0 {
-						state.appendLog(fmt.Sprintf("No matching sheets found in %s; skipped.", filepath.Base(file)), levelWarning)
+						state.appendLog(fmt.Sprintf("No matching sheets with data found in %s; skipped.", filepath.Base(file)), levelWarning)
 					} else {
 						state.appendLog(fmt.Sprintf("Converted sheets in %s: %s", filepath.Base(file), strings.Join(convertedSheets, ", ")), levelInfo)
 					}
@@ -375,6 +376,7 @@ func splitExcelFile(filePath string, outDir string) ([]string, error) {
 	if dir == "" {
 		dir = filepath.Dir(filePath)
 	}
+	timestamp := time.Now().Format("200601021504")
 
 	convertedSheets := make([]string, 0, len(sheetConfigs))
 	for _, sheetConfig := range sheetConfigs {
@@ -389,8 +391,8 @@ func splitExcelFile(filePath string, outDir string) ([]string, error) {
 		}
 
 		config := sheetConfig.SheetConfig
-		if len(rows) <= config.SourceHeaderRows {
-			continue // No data, skip
+		if !hasDataRows(rows, config.SourceHeaderRows) {
+			continue
 		}
 
 		templatePath := filepath.Join("assets", "template", "LZACN", config.TemplateFile)
@@ -410,7 +412,10 @@ func splitExcelFile(filePath string, outDir string) ([]string, error) {
 			}
 		}
 
-		outFileName := strings.Replace(config.TemplateFile, "LZA00000", "LZACN"+lcc, 1)
+		outFileName := addTimestampSuffix(
+			strings.Replace(config.TemplateFile, "LZA00000", "LZACN"+lcc, 1),
+			timestamp,
+		)
 		outFilePath := filepath.Join(dir, outFileName)
 
 		if err := tmplFile.SaveAs(outFilePath); err != nil {
@@ -422,6 +427,27 @@ func splitExcelFile(filePath string, outDir string) ([]string, error) {
 	}
 
 	return convertedSheets, nil
+}
+
+func hasDataRows(rows [][]string, headerRows int) bool {
+	if headerRows >= len(rows) {
+		return false
+	}
+
+	for _, row := range rows[headerRows:] {
+		for _, cell := range row {
+			if strings.TrimSpace(cell) != "" {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func addTimestampSuffix(fileName, timestamp string) string {
+	extension := filepath.Ext(fileName)
+	return strings.TrimSuffix(fileName, extension) + "_" + timestamp + extension
 }
 
 func findMatchingSheetName(sheetNames, acceptedNames []string) string {
