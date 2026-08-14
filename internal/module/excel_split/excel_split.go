@@ -446,6 +446,7 @@ func hasDataRows(rows [][]string, headerRows int) bool {
 }
 
 func addTimestampSuffix(fileName, timestamp string) string {
+	fileName = strings.ReplaceAll(fileName, " ", "")
 	extension := filepath.Ext(fileName)
 	return strings.TrimSuffix(fileName, extension) + "_" + timestamp + extension
 }

@@ -95,7 +95,7 @@ func TestHasDataRows(t *testing.T) {
 
 func TestAddTimestampSuffix(t *testing.T) {
 	got := addTimestampSuffix("LZACN0301994_Social Insurance.xlsx", "202608142012")
-	want := "LZACN0301994_Social Insurance_202608142012.xlsx"
+	want := "LZACN0301994_SocialInsurance_202608142012.xlsx"
 	if got != want {
 		t.Errorf("addTimestampSuffix() = %q, want %q", got, want)
 	}
