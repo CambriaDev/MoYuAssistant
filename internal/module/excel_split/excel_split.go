@@ -261,11 +261,16 @@ func (m *ExcelSplitModule) CreateUI(w fyne.Window) fyne.CanvasObject {
 			failCount := 0
 			for i, file := range state.selectedFiles {
 				state.appendLog(fmt.Sprintf("Processing (%d/%d): %s", i+1, len(state.selectedFiles), filepath.Base(file)), levelInfo)
-				err := splitExcelFile(file, state.outputDir)
+				convertedSheets, err := splitExcelFile(file, state.outputDir)
 				if err != nil {
 					state.appendLog(fmt.Sprintf("Failed %s: %v", filepath.Base(file), err), levelError)
 					failCount++
 				} else {
+					if len(convertedSheets) == 0 {
+						state.appendLog(fmt.Sprintf("No matching sheets found in %s; skipped.", filepath.Base(file)), levelWarning)
+					} else {
+						state.appendLog(fmt.Sprintf("Converted sheets in %s: %s", filepath.Base(file), strings.Join(convertedSheets, ", ")), levelInfo)
+					}
 					state.appendLog(fmt.Sprintf("Successfully processed %s", filepath.Base(file)), levelSuccess)
 					successCount++
 				}
@@ -338,27 +343,32 @@ type SheetConfig struct {
 	TemplateHeaderRows int
 }
 
-func splitExcelFile(filePath string, outDir string) error {
+type sheetConversionConfig struct {
+	Names []string
+	SheetConfig
+}
+
+func splitExcelFile(filePath string, outDir string) ([]string, error) {
 	baseName := filepath.Base(filePath)
 	re := regexp.MustCompile(`^LZACN_LZACN(\d{3})`)
 	matches := re.FindStringSubmatch(baseName)
 	if len(matches) < 2 {
-		return fmt.Errorf("文件名不符合要求，必须以 LZACN_LZACN<LCC> 开头")
+		return nil, fmt.Errorf("文件名不符合要求，必须以 LZACN_LZACN<LCC> 开头")
 	}
 	lcc := matches[1]
 
 	f, err := excelize.OpenFile(filePath)
 	if err != nil {
-		return fmt.Errorf("打开源文件失败: %v", err)
+		return nil, fmt.Errorf("打开源文件失败: %v", err)
 	}
 	defer f.Close()
 
-	sheetConfigs := map[string]SheetConfig{
-		"DATA_CHANGE":               {TemplateFile: "LZA000001998TPEv005_PayElementUpload.xlsx", SourceHeaderRows: 3, TemplateHeaderRows: 2},
-		"DATA_CHANGE (report only)": {TemplateFile: "LZA000001991_Corrections.xlsx", SourceHeaderRows: 2, TemplateHeaderRows: 2},
-		"DATA_CHANGE(cnit)":         {TemplateFile: "LZA000001994_Income Tax_2026_08_03_02_20_43.xlsx", SourceHeaderRows: 1, TemplateHeaderRows: 1},
-		"DATA PHF (ViewID=284)":     {TemplateFile: "LZA000001994_Public Housing Fund_2026_08_03_02_20_42.xlsx", SourceHeaderRows: 1, TemplateHeaderRows: 1},
-		"DATA SI (ViewId=286)":      {TemplateFile: "LZA000001994_Social Insurance_2026_08_03_02_20_43.xlsx", SourceHeaderRows: 1, TemplateHeaderRows: 1},
+	sheetConfigs := []sheetConversionConfig{
+		{Names: []string{"DATA_CHANGE"}, SheetConfig: SheetConfig{TemplateFile: "LZA000001998TPEv005_PayElementUpload.xlsx", SourceHeaderRows: 3, TemplateHeaderRows: 2}},
+		{Names: []string{"DATA_CHANGE (report only)"}, SheetConfig: SheetConfig{TemplateFile: "LZA000001991_Corrections.xlsx", SourceHeaderRows: 2, TemplateHeaderRows: 2}},
+		{Names: []string{"DATA_CHANGE (cnit)"}, SheetConfig: SheetConfig{TemplateFile: "LZA000001994_Income Tax_2026_08_03_02_20_43.xlsx", SourceHeaderRows: 1, TemplateHeaderRows: 1}},
+		{Names: []string{"DATA PHF (ViewID=284)", "DATA_CHANGE (cnphf)"}, SheetConfig: SheetConfig{TemplateFile: "LZA000001994_Public Housing Fund_2026_08_03_02_20_42.xlsx", SourceHeaderRows: 1, TemplateHeaderRows: 1}},
+		{Names: []string{"DATA SI (ViewId=286)", "DATA_CHANGE (cnsi)"}, SheetConfig: SheetConfig{TemplateFile: "LZA000001994_Social Insurance_2026_08_03_02_20_43.xlsx", SourceHeaderRows: 1, TemplateHeaderRows: 1}},
 	}
 
 	dir := outDir
@@ -366,27 +376,19 @@ func splitExcelFile(filePath string, outDir string) error {
 		dir = filepath.Dir(filePath)
 	}
 
-	for sheetName, config := range sheetConfigs {
-		// check if sheet exists in source file using fuzzy match
-		var actualSheetName string
-		expectedFuzzy := strings.ToLower(strings.ReplaceAll(sheetName, " ", ""))
-		for _, name := range f.GetSheetList() {
-			actualFuzzy := strings.ToLower(strings.ReplaceAll(name, " ", ""))
-			if actualFuzzy == expectedFuzzy {
-				actualSheetName = name
-				break
-			}
-		}
-
+	convertedSheets := make([]string, 0, len(sheetConfigs))
+	for _, sheetConfig := range sheetConfigs {
+		actualSheetName := findMatchingSheetName(f.GetSheetList(), sheetConfig.Names)
 		if actualSheetName == "" {
-			return fmt.Errorf("源文件缺少必要的Sheet: %s", sheetName)
+			continue
 		}
 
 		rows, err := f.GetRows(actualSheetName)
 		if err != nil {
-			return fmt.Errorf("读取Sheet %s 失败: %v", actualSheetName, err)
+			return nil, fmt.Errorf("读取Sheet %s 失败: %v", actualSheetName, err)
 		}
 
+		config := sheetConfig.SheetConfig
 		if len(rows) <= config.SourceHeaderRows {
 			continue // No data, skip
 		}
@@ -394,7 +396,7 @@ func splitExcelFile(filePath string, outDir string) error {
 		templatePath := filepath.Join("assets", "template", "LZACN", config.TemplateFile)
 		tmplFile, err := excelize.OpenFile(templatePath)
 		if err != nil {
-			return fmt.Errorf("打开模板文件 %s 失败: %v", config.TemplateFile, err)
+			return nil, fmt.Errorf("打开模板文件 %s 失败: %v", config.TemplateFile, err)
 		}
 
 		activeSheet := tmplFile.GetSheetName(tmplFile.GetActiveSheetIndex())
@@ -413,10 +415,25 @@ func splitExcelFile(filePath string, outDir string) error {
 
 		if err := tmplFile.SaveAs(outFilePath); err != nil {
 			tmplFile.Close()
-			return fmt.Errorf("保存文件 %s 失败: %v", outFileName, err)
+			return nil, fmt.Errorf("保存文件 %s 失败: %v", outFileName, err)
 		}
 		tmplFile.Close()
+		convertedSheets = append(convertedSheets, actualSheetName)
 	}
 
-	return nil
+	return convertedSheets, nil
+}
+
+func findMatchingSheetName(sheetNames, acceptedNames []string) string {
+	for _, acceptedName := range acceptedNames {
+		expectedFuzzy := strings.ToLower(strings.ReplaceAll(acceptedName, " ", ""))
+		for _, sheetName := range sheetNames {
+			actualFuzzy := strings.ToLower(strings.ReplaceAll(sheetName, " ", ""))
+			if actualFuzzy == expectedFuzzy {
+				return sheetName
+			}
+		}
+	}
+
+	return ""
 }
