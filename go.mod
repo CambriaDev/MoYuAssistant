@@ -2,15 +2,22 @@ module moyu-assistant
 
 go 1.25.0
 
-require fyne.io/fyne/v2 v2.4.4
+require (
+	fyne.io/fyne/v2 v2.4.4
+	github.com/eslider/go-xls/v2 v2.1.0
+	github.com/flopp/go-findfont v0.1.0
+	github.com/go-ole/go-ole v1.3.0
+	github.com/ncruces/zenity v0.10.14
+	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
+	github.com/tealeg/xlsx v1.0.5
+	github.com/xuri/excelize/v2 v2.11.0
+)
 
 require (
 	fyne.io/systray v1.10.1-0.20231115130155-104f5ef7839e // indirect
 	github.com/akavel/rsrc v0.10.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dchest/jsmin v0.0.0-20220218165748-59f39799265f // indirect
-	github.com/eslider/go-xls/v2 v2.1.0 // indirect
-	github.com/flopp/go-findfont v0.1.0 // indirect
 	github.com/fredbi/uri v1.0.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/fyne-io/gl-js v0.0.0-20220119005834-d2da28d9ccfe // indirect
@@ -18,14 +25,12 @@ require (
 	github.com/fyne-io/image v0.0.0-20220602074514-4956b0afb3d2 // indirect
 	github.com/go-gl/gl v0.0.0-20211210172815-726fda9656d6 // indirect
 	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20221017161538-93cebf72946b // indirect
-	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-text/render v0.0.0-20230619120952-35bccb6164b8 // indirect
 	github.com/go-text/typesetting v0.1.0 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/gopherjs/gopherjs v1.17.2 // indirect
 	github.com/josephspurrier/goversioninfo v1.4.1 // indirect
 	github.com/jsummers/gobmp v0.0.0-20151104160322-e2ba15ffa76e // indirect
-	github.com/ncruces/zenity v0.10.14 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/randall77/makefat v0.0.0-20210315173500-7ddd0e42c844 // indirect
 	github.com/richardlehane/mscfb v1.0.7 // indirect
@@ -33,11 +38,9 @@ require (
 	github.com/srwiley/oksvg v0.0.0-20221011165216-be6e8873101c // indirect
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
-	github.com/tealeg/xlsx v1.0.5 // indirect
 	github.com/tevino/abool v1.2.0 // indirect
 	github.com/tiendc/go-deepcopy v1.7.2 // indirect
 	github.com/xuri/efp v0.0.1 // indirect
-	github.com/xuri/excelize/v2 v2.11.0 // indirect
 	github.com/xuri/nfp v0.0.2-0.20250530014748-2ddeb826f9a9 // indirect
 	github.com/yuin/goldmark v1.5.5 // indirect
 	golang.org/x/crypto v0.53.0 // indirect
