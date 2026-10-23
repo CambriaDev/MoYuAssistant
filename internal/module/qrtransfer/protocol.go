@@ -60,9 +60,17 @@ type Transfer struct {
 
 // NewTransfer creates metadata for a file without imposing an application-level size limit.
 func NewTransfer(fileName string, data []byte) (*Transfer, error) {
+	return NewTransferWithChunkSize(fileName, data, chunkSize)
+}
+
+// NewTransferWithChunkSize creates a transfer using the requested bytes per data QR.
+func NewTransferWithChunkSize(fileName string, data []byte, chunkSize int) (*Transfer, error) {
 	name := path.Base(strings.ReplaceAll(fileName, `\`, "/"))
 	if name == "" || name == "." || !utf8.ValidString(name) {
 		return nil, fmt.Errorf("invalid file name")
+	}
+	if chunkSize < 1 {
+		return nil, fmt.Errorf("chunk size must be greater than 0")
 	}
 
 	var idBytes [16]byte

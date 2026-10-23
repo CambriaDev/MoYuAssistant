@@ -53,6 +53,55 @@ func TestTransferPayloadRoundTrip(t *testing.T) {
 	}
 }
 
+func TestTransferChunkSizeRebuildsManifestAndFrames(t *testing.T) {
+	data := bytes.Repeat([]byte("payload"), 250)
+	original, err := NewTransferWithChunkSize("sample.bin", data, 700)
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated, err := NewTransferWithChunkSize("sample.bin", data, 300)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.ID == original.ID {
+		t.Fatal("updated transfer reused the old transfer ID")
+	}
+	if updated.ChunkSize != 300 || updated.Total != 6 {
+		t.Fatalf("updated transfer has chunk size %d and %d frames, want 300 and 6", updated.ChunkSize, updated.Total)
+	}
+
+	manifestPayload, err := updated.ManifestPayload()
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := DecodePayload(manifestPayload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if manifest.Manifest.ChunkSize != 300 || manifest.Manifest.Total != 6 ||
+		manifest.Manifest.ID != updated.ID {
+		t.Fatalf("updated manifest does not describe new transfer: %+v", manifest.Manifest)
+	}
+
+	dataPayload, err := updated.Payload(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	frame, err := DecodePayload(dataPayload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if frame.Data.ID != updated.ID || len(frame.Chunk) != 300 {
+		t.Fatalf("updated data frame does not match transfer: ID=%q chunk=%d", frame.Data.ID, len(frame.Chunk))
+	}
+}
+
+func TestTransferRejectsInvalidChunkSize(t *testing.T) {
+	if _, err := NewTransferWithChunkSize("sample.bin", []byte("data"), 0); err == nil {
+		t.Fatal("expected invalid chunk size to be rejected")
+	}
+}
+
 func TestEmptyFileHasOneEmptyFrame(t *testing.T) {
 	transfer, err := NewTransfer("empty.txt", nil)
 	if err != nil {
