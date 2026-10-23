@@ -13,28 +13,47 @@ import (
 )
 
 const (
-	payloadVersion = 1
+	payloadVersion = 2
 	chunkSize      = 700
+	manifestType   = "manifest"
+	dataType       = "data"
 )
 
-// Frame describes one independently scannable part of a file transfer.
-type Frame struct {
+// Manifest carries the metadata needed to receive one complete file transfer.
+type Manifest struct {
 	Version   int    `json:"v"`
+	Type      string `json:"type"`
 	ID        string `json:"id"`
 	Name      string `json:"name"`
 	Size      int64  `json:"size"`
+	ChunkSize int    `json:"chunkSize"`
 	Total     int    `json:"total"`
-	Index     int    `json:"index"`
 	SHA256    string `json:"sha256"`
-	Data      string `json:"data"`
 }
 
-// Transfer holds the metadata and file bytes needed to generate QR payloads on demand.
+// DataFrame carries one independently indexed file chunk.
+type DataFrame struct {
+	Version int    `json:"v"`
+	Type    string `json:"type"`
+	ID      string `json:"id"`
+	Index   int    `json:"index"`
+	Data    string `json:"data"`
+}
+
+// DecodedFrame is either a transfer manifest or a decoded data chunk.
+type DecodedFrame struct {
+	Manifest *Manifest
+	Data     *DataFrame
+	Chunk    []byte
+}
+
+// Transfer holds metadata and file bytes needed to generate QR payloads on demand.
 type Transfer struct {
 	ID        string
 	Name      string
 	Size      int64
 	Total     int
+	ChunkSize int
 	SHA256    string
 	data      []byte
 }
@@ -58,22 +77,42 @@ func NewTransfer(fileName string, data []byte) (*Transfer, error) {
 	digest := sha256.Sum256(data)
 
 	return &Transfer{
-		ID:     hex.EncodeToString(idBytes[:]),
-		Name:   name,
-		Size:   int64(len(data)),
-		Total:  total,
-		SHA256: hex.EncodeToString(digest[:]),
-		data:   data,
+		ID:        hex.EncodeToString(idBytes[:]),
+		Name:      name,
+		Size:      int64(len(data)),
+		Total:     total,
+		ChunkSize: chunkSize,
+		SHA256:    hex.EncodeToString(digest[:]),
+		data:      data,
 	}, nil
 }
 
-// Payload returns the JSON QR payload for a zero-based frame index.
+// ManifestPayload returns the metadata QR payload shown before data frames.
+func (t *Transfer) ManifestPayload() (string, error) {
+	manifest := Manifest{
+		Version:   payloadVersion,
+		Type:      manifestType,
+		ID:        t.ID,
+		Name:      t.Name,
+		Size:      t.Size,
+		ChunkSize: t.ChunkSize,
+		Total:     t.Total,
+		SHA256:    t.SHA256,
+	}
+	encoded, err := json.Marshal(manifest)
+	if err != nil {
+		return "", fmt.Errorf("encode transfer manifest: %w", err)
+	}
+	return string(encoded), nil
+}
+
+// Payload returns the JSON QR payload for a zero-based data-frame index.
 func (t *Transfer) Payload(index int) (string, error) {
 	if index < 0 || index >= t.Total {
 		return "", fmt.Errorf("frame index %d is out of range", index)
 	}
-	start := index * chunkSize
-	end := start + chunkSize
+	start := index * t.ChunkSize
+	end := start + t.ChunkSize
 	if end > len(t.data) {
 		end = len(t.data)
 	}
@@ -81,68 +120,96 @@ func (t *Transfer) Payload(index int) (string, error) {
 		start = len(t.data)
 	}
 
-	frame := Frame{
+	frame := DataFrame{
 		Version: payloadVersion,
+		Type:    dataType,
 		ID:      t.ID,
-		Name:    t.Name,
-		Size:    t.Size,
-		Total:   t.Total,
 		Index:   index,
-		SHA256:  t.SHA256,
 		Data:    base64.RawURLEncoding.EncodeToString(t.data[start:end]),
 	}
 	encoded, err := json.Marshal(frame)
 	if err != nil {
-		return "", fmt.Errorf("encode QR frame: %w", err)
+		return "", fmt.Errorf("encode QR data frame: %w", err)
 	}
 	return string(encoded), nil
 }
 
-// DecodePayload validates a QR frame and returns its decoded chunk bytes.
-func DecodePayload(payload string) (Frame, []byte, error) {
-	var frame Frame
-	if err := json.Unmarshal([]byte(payload), &frame); err != nil {
-		return Frame{}, nil, fmt.Errorf("decode QR frame: %w", err)
+// DecodePayload validates and decodes either a manifest or a data frame.
+func DecodePayload(payload string) (DecodedFrame, error) {
+	var envelope struct {
+		Version int    `json:"v"`
+		Type    string `json:"type"`
 	}
-	if frame.Version != payloadVersion {
-		return Frame{}, nil, fmt.Errorf("unsupported QR transfer version %d", frame.Version)
+	if err := json.Unmarshal([]byte(payload), &envelope); err != nil {
+		return DecodedFrame{}, fmt.Errorf("decode QR frame: %w", err)
 	}
-	if len(frame.ID) != 32 {
-		return Frame{}, nil, fmt.Errorf("invalid transfer ID")
-	}
-	if _, err := hex.DecodeString(frame.ID); err != nil {
-		return Frame{}, nil, fmt.Errorf("invalid transfer ID")
-	}
-	if frame.Name == "" || !utf8.ValidString(frame.Name) {
-		return Frame{}, nil, fmt.Errorf("invalid file name")
-	}
-	if frame.Size < 0 || frame.Total < 1 || frame.Index < 0 || frame.Index >= frame.Total {
-		return Frame{}, nil, fmt.Errorf("invalid frame metadata")
-	}
-	expectedTotal := 1
-	if frame.Size > 0 {
-		expectedTotal = int((frame.Size-1)/chunkSize + 1)
-	}
-	if int64(expectedTotal) != int64(frame.Total) {
-		return Frame{}, nil, fmt.Errorf("frame count does not match file size")
-	}
-	if len(frame.SHA256) != sha256.Size*2 {
-		return Frame{}, nil, fmt.Errorf("invalid file checksum")
-	}
-	if _, err := hex.DecodeString(frame.SHA256); err != nil {
-		return Frame{}, nil, fmt.Errorf("invalid file checksum")
+	if envelope.Version != payloadVersion {
+		return DecodedFrame{}, fmt.Errorf("unsupported QR transfer version %d", envelope.Version)
 	}
 
-	chunk, err := base64.RawURLEncoding.DecodeString(frame.Data)
-	if err != nil {
-		return Frame{}, nil, fmt.Errorf("decode QR frame data: %w", err)
+	switch envelope.Type {
+	case manifestType:
+		var manifest Manifest
+		if err := json.Unmarshal([]byte(payload), &manifest); err != nil {
+			return DecodedFrame{}, fmt.Errorf("decode transfer manifest: %w", err)
+		}
+		if err := validateManifest(manifest); err != nil {
+			return DecodedFrame{}, err
+		}
+		return DecodedFrame{Manifest: &manifest}, nil
+	case dataType:
+		var frame DataFrame
+		if err := json.Unmarshal([]byte(payload), &frame); err != nil {
+			return DecodedFrame{}, fmt.Errorf("decode QR data frame: %w", err)
+		}
+		if !validTransferID(frame.ID) || frame.Index < 0 {
+			return DecodedFrame{}, fmt.Errorf("invalid data-frame metadata")
+		}
+		chunk, err := base64.RawURLEncoding.DecodeString(frame.Data)
+		if err != nil {
+			return DecodedFrame{}, fmt.Errorf("decode QR frame data: %w", err)
+		}
+		return DecodedFrame{Data: &frame, Chunk: chunk}, nil
+	default:
+		return DecodedFrame{}, fmt.Errorf("unsupported QR frame type %q", envelope.Type)
 	}
-	expectedLength := chunkSize
-	if frame.Index == frame.Total-1 {
-		expectedLength = int(frame.Size - int64(frame.Index*chunkSize))
+}
+
+func validateManifest(manifest Manifest) error {
+	if !validTransferID(manifest.ID) {
+		return fmt.Errorf("invalid transfer ID")
 	}
-	if len(chunk) != expectedLength {
-		return Frame{}, nil, fmt.Errorf("frame data length does not match frame metadata")
+	if manifest.Name == "" || !utf8.ValidString(manifest.Name) {
+		return fmt.Errorf("invalid file name")
 	}
-	return frame, chunk, nil
+	if manifest.Size < 0 || manifest.ChunkSize < 1 || manifest.Total < 1 {
+		return fmt.Errorf("invalid manifest metadata")
+	}
+	expectedTotal := int64(1)
+	if manifest.Size > 0 {
+		expectedTotal = (manifest.Size-1)/int64(manifest.ChunkSize) + 1
+	}
+	if expectedTotal != int64(manifest.Total) {
+		return fmt.Errorf("frame count does not match file size")
+	}
+	if !validChecksum(manifest.SHA256) {
+		return fmt.Errorf("invalid file checksum")
+	}
+	return nil
+}
+
+func validTransferID(id string) bool {
+	if len(id) != 32 {
+		return false
+	}
+	_, err := hex.DecodeString(id)
+	return err == nil
+}
+
+func validChecksum(value string) bool {
+	if len(value) != sha256.Size*2 {
+		return false
+	}
+	_, err := hex.DecodeString(value)
+	return err == nil
 }
