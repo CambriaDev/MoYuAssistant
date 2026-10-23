@@ -1,0 +1,258 @@
+:root {
+  --matrix-label-color: #57606a;
+  --matrix-empty-color: #d8dee4;
+  --matrix-received-color: #1f883d;
+  color-scheme: light dark;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #1f2328;
+  background: #f6f8fa;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+.page {
+  width: min(100% - 24px, 620px);
+  margin: 0 auto;
+  padding: 24px 0 40px;
+}
+
+.page-header {
+  padding: 8px 4px 20px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: #57606a;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  margin-bottom: 8px;
+  font-size: clamp(1.6rem, 7vw, 2.2rem);
+}
+
+.page-header > p:last-child {
+  margin-bottom: 0;
+  color: #57606a;
+  line-height: 1.5;
+}
+
+.panel {
+  margin: 12px 0;
+  padding: 18px;
+  border: 1px solid #d0d7de;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 1px 3px #1f23280d;
+}
+
+h2 {
+  margin-bottom: 12px;
+  font-size: 1.1rem;
+}
+
+video {
+  display: block;
+  width: 100%;
+  min-height: 180px;
+  max-height: 56vh;
+  aspect-ratio: 4 / 3;
+  border-radius: 10px;
+  background: #161b22;
+  object-fit: cover;
+}
+
+.camera-selection {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.camera-selection label {
+  font-weight: 600;
+}
+
+.camera-selection select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #1f2328;
+  background: #f6f8fa;
+  font: inherit;
+}
+
+.camera-selection select:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.actions,
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.actions {
+  margin-top: 12px;
+}
+
+button,
+.download {
+  min-height: 44px;
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+  padding: 10px 16px;
+  color: #1f2328;
+  background: #f6f8fa;
+  font: inherit;
+  font-weight: 600;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+button.primary {
+  flex: 1;
+  border-color: #1f883d;
+  color: #fff;
+  background: #1f883d;
+}
+
+.quiet {
+  min-height: 36px;
+  padding: 6px 12px;
+}
+
+progress {
+  display: block;
+  width: 100%;
+  height: 12px;
+  margin: 4px 0 10px;
+  accent-color: #1f883d;
+}
+
+.matrix-container {
+  max-height: min(55vh, 560px);
+  overflow: auto;
+  margin-top: 14px;
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+  background: #f6f8fa;
+  overscroll-behavior: contain;
+  scrollbar-color: #8c959f transparent;
+}
+
+.matrix-container[hidden],
+.matrix-caption[hidden] {
+  display: none;
+}
+
+.chunk-matrix {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  margin: 0;
+  border: 0;
+  image-rendering: pixelated;
+}
+
+.matrix-caption {
+  margin: 8px 0 0;
+  color: #57606a;
+  font-size: 0.85rem;
+}
+
+.matrix-container:focus-within {
+  outline: 2px solid #0969da;
+  outline-offset: 2px;
+}
+
+.status {
+  margin: 12px 0 0;
+  color: #57606a;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.status[data-state="error"] {
+  color: #cf222e;
+}
+
+.status[data-state="success"] {
+  color: #1a7f37;
+}
+
+.download {
+  display: block;
+  margin-top: 14px;
+  border-color: #1f883d;
+  color: #fff;
+  background: #1f883d;
+  text-align: center;
+  text-decoration: none;
+}
+
+.privacy-note {
+  margin: 18px 4px 0;
+  color: #57606a;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --matrix-label-color: #8b949e;
+    --matrix-empty-color: #30363d;
+    color: #e6edf3;
+    background: #0d1117;
+  }
+
+  .eyebrow,
+  .page-header > p:last-child,
+  .status,
+  .matrix-caption,
+  .privacy-note {
+    color: #8b949e;
+  }
+
+  .panel,
+  .matrix-container,
+  .camera-selection select,
+  button:not(.primary):not(.download) {
+    border-color: #30363d;
+    background: #161b22;
+    color: #e6edf3;
+  }
+}

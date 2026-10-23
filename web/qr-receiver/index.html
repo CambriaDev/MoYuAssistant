@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f6f8fa" />
+    <title>二维码文件接收器</title>
+  </head>
+  <body>
+    <main class="page">
+      <header class="page-header">
+        <p class="eyebrow">MoYu Assistant</p>
+        <h1>二维码文件接收器</h1>
+        <p>扫描桌面端循环播放的二维码序列；接收器会自动补齐漏扫的分片。</p>
+      </header>
+
+      <section class="panel" aria-labelledby="camera-heading">
+        <h2 id="camera-heading">摄像头</h2>
+        <div class="camera-selection">
+          <label for="camera-select">选择摄像头</label>
+          <select id="camera-select" disabled>
+            <option value="">启动摄像头后加载设备</option>
+          </select>
+        </div>
+        <video id="camera" autoplay muted playsinline></video>
+        <div class="actions">
+          <button id="start-scan" class="primary">开始扫描</button>
+          <button id="stop-scan" disabled>停止</button>
+        </div>
+        <p id="scan-status" class="status" role="status" aria-live="polite">
+          点击“开始扫描”并允许使用摄像头。请保持二维码位于画面内。
+        </p>
+      </section>
+
+      <section class="panel" aria-labelledby="progress-heading">
+        <div class="section-heading">
+          <h2 id="progress-heading">接收进度</h2>
+          <button id="reset-transfer" class="quiet" disabled>重置</button>
+        </div>
+        <progress id="transfer-progress" max="1" value="0"></progress>
+        <p id="transfer-status" class="status" role="status" aria-live="polite">
+          尚未接收到二维码。
+        </p>
+        <div id="matrix-container" class="matrix-container" hidden>
+          <canvas
+            id="chunk-matrix"
+            class="chunk-matrix"
+            role="img"
+            aria-label="文件分片接收状态"
+          ></canvas>
+        </div>
+        <p id="matrix-caption" class="matrix-caption" hidden>
+          状态矩阵固定为 20 列；每行左侧数字是该行第一个分片序号，点亮表示已接收。
+        </p>
+        <a id="download-file" class="download" hidden>下载还原后的文件</a>
+      </section>
+
+      <p class="privacy-note">
+        文件只在本机浏览器中重组，不会上传到网页服务器。摄像头需要 HTTPS 安全连接。
+      </p>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
