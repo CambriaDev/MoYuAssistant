@@ -1,13 +1,13 @@
 APP_NAME := moyu-assistant
 
 # All available modules
-ALL_MODULES := module_clock module_todo module_pomodoro module_notes module_jiggler module_excel_split module_billing_convert module_qr_transfer
+ALL_MODULES := module_clock module_todo module_pomodoro module_notes module_banktool module_jiggler module_excel_split module_billing_convert module_qr_transfer
 
 # Default: build with all modules (override with: make build MODULES="module_clock module_todo")
 MODULES ?= $(ALL_MODULES)
 TAGS := $(MODULES)
 
-.PHONY: build build-all build-minimal run run-all clean help
+.PHONY: build build-win build-all build-minimal run run-all deps clean help
 
 ## Build with selected modules (default: all)
 build:
@@ -50,7 +50,8 @@ help:
 	@echo "  module_todo      - 待办事项"
 	@echo "  module_pomodoro  - 番茄钟"
 	@echo "  module_notes     - 快捷笔记"
-	@echo "  module_jiggler   - 防锁屏"
+	@echo "  module_banktool  - MCL Bank Excel 转换与校验"
+	@echo "  module_jiggler   - 空闲时轻微移动鼠标（Windows）"
 	@echo "  module_excel_split - Excel拆分"
 	@echo "  module_billing_convert - MaerskCN 账单批量上传转换"
 	@echo "  module_qr_transfer     - 二维码文件传输"
